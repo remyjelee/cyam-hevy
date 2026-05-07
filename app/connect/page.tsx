@@ -20,6 +20,10 @@ export default function ConnectPage() {
     window.location.href = url;
   };
 
+  const stravaButtonClass =
+    'w-full px-6 py-4 rounded-lg transition-colors text-white font-semibold text-base';
+  const stravaButtonStyle = { backgroundColor: '#FC4C02' } as const;
+
   if (status === 'success') {
     return (
       <Frame>
@@ -30,8 +34,7 @@ export default function ConnectPage() {
           Welcome, <span className="text-flame font-medium">{statusName}</span>.
         </p>
         <p className="text-sm text-muted mb-8">
-          Your workouts will appear automatically. <br></br>
-          See you at ANYTIME FITNESS!
+          Your workouts will appear automatically.
         </p>
         <a
           href="/"
@@ -52,9 +55,10 @@ export default function ConnectPage() {
         </p>
         <button
           onClick={handleConnect}
-          className="px-6 py-3 rounded-lg bg-flame text-ink font-display uppercase tracking-wider"
+          className="px-5 py-3 rounded-lg flex items-center justify-center hover:brightness-110 text-white font-semibold"
+          style={{ backgroundColor: '#FC4C02' }}
         >
-          Try again
+          Try again with Strava
         </button>
       </Frame>
     );
@@ -73,9 +77,10 @@ export default function ConnectPage() {
         </p>
         <button
           onClick={handleConnect}
-          className="px-6 py-3 rounded-lg bg-flame text-ink font-display uppercase tracking-wider"
+          className="px-5 py-3 rounded-lg flex items-center justify-center hover:brightness-110 text-white font-semibold"
+          style={{ backgroundColor: '#FC4C02' }}
         >
-          Try again
+          Try again with Strava
         </button>
       </Frame>
     );
@@ -90,9 +95,10 @@ export default function ConnectPage() {
         </p>
         <button
           onClick={handleConnect}
-          className="px-6 py-3 rounded-lg bg-flame text-ink font-display uppercase tracking-wider"
+          className="px-5 py-3 rounded-lg flex items-center justify-center hover:brightness-110 text-white font-semibold"
+          style={{ backgroundColor: '#FC4C02' }}
         >
-          Try again
+          Try again with Strava
         </button>
       </Frame>
     );
@@ -104,11 +110,11 @@ export default function ConnectPage() {
         CYAM Hevy Challenge
       </div>
       <h1 className="font-display text-5xl uppercase leading-none mb-4">
-        Join <span className="text-flame">Season 2</span>
+        Join the <span className="text-flame">grind</span>
       </h1>
       <p className="text-bone/80 mb-1">4 workouts a week. 30+ minutes each.</p>
       <p className="text-muted text-sm mb-8">
-        Miss one? $10 penalty. With the pool we have BBQ or go camping 👀
+        Miss one? -$10. The pool buys dinner on the final week.
       </p>
 
       <div className="space-y-3">
@@ -127,9 +133,11 @@ export default function ConnectPage() {
 
         <button
           onClick={handleConnect}
-          className="w-full px-6 py-4 rounded-lg bg-flame hover:bg-ember transition-colors text-ink font-display uppercase tracking-wider text-lg"
+          className={stravaButtonClass}
+          style={stravaButtonStyle}
+          aria-label="Connect with Strava"
         >
-          Connect Strava
+          Connect with Strava
         </button>
 
         <p className="text-[11px] text-muted leading-relaxed pt-2">
@@ -140,6 +148,9 @@ export default function ConnectPage() {
             Privacy
           </a>
           .
+        </p>
+        <p className="text-[11px] text-muted leading-relaxed">
+          This app is independent and is not developed or sponsored by Strava.
         </p>
       </div>
     </Frame>

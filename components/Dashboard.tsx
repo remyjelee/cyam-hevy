@@ -161,16 +161,26 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
         </section>
 
         {/* FOOTER ----------------------------------------------------------- */}
-        <footer className="mt-12 text-[10px] text-muted uppercase tracking-widest text-center">
-          Synced{' '}
-          {data.last_synced_at
-            ? new Date(data.last_synced_at).toLocaleString('en-AU', {
-                hour: '2-digit',
-                minute: '2-digit',
-                day: '2-digit',
-                month: 'short',
-              })
-            : 'never'}
+        <footer className="mt-12 flex flex-col items-center gap-3">
+          <a
+            href="https://www.strava.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center px-2.5 py-1 text-[10px] uppercase tracking-widest text-muted hover:text-bone transition-colors"
+          >
+            Powered by Strava
+          </a>
+          <div className="text-[10px] text-muted uppercase tracking-widest text-center">
+            Synced{' '}
+            {data.last_synced_at
+              ? new Date(data.last_synced_at).toLocaleString('en-AU', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  day: '2-digit',
+                  month: 'short',
+                })
+              : 'never'}
+          </div>
         </footer>
       </div>
     </main>

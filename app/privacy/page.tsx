@@ -41,6 +41,12 @@ export default function PrivacyPage() {
         <p>
           Questions go to the organizer in the group chat.
         </p>
+        <h2 className="font-display text-xl uppercase mt-8 mb-2">Strava notice</h2>
+        <p>
+          This application is independent and is not developed, sponsored, or
+          endorsed by Strava. "Powered by Strava" is used only to describe
+          interoperability with the Strava platform.
+        </p>
       </div>
 
       <a
