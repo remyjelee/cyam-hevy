@@ -15,7 +15,16 @@ async function getInitialData(): Promise<DashboardData> {
     );
   }
 
-  const res = await fetch(`${appUrl}/api/data/dashboard`, { cache: 'no-store' });
+  // Forward request auth/cookies so protected Vercel deployments can call
+  // internal routes during SSR without getting a 401 auth wall.
+  const res = await fetch(`${appUrl}/api/data/dashboard`, {
+    cache: 'no-store',
+    headers: {
+      cookie: h.get('cookie') ?? '',
+      authorization: h.get('authorization') ?? '',
+      'x-vercel-protection-bypass': h.get('x-vercel-protection-bypass') ?? '',
+    },
+  });
   if (!res.ok) {
     const body = await res.text().catch(() => '<no body>');
     throw new Error(
