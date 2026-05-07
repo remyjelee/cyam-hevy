@@ -41,6 +41,12 @@ export default function PrivacyPage() {
         <p>
           Questions go to the organizer in the group chat.
         </p>
+        <h2 className="font-display text-xl uppercase mt-8 mb-2">Support</h2>
+        <p>
+          For support requests (including data deletion and account removal),
+          contact the organizer through the same invite/group channel used to
+          join this challenge.
+        </p>
         <h2 className="font-display text-xl uppercase mt-8 mb-2">Strava notice</h2>
         <p>
           This application is independent and is not developed, sponsored, or
