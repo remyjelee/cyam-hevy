@@ -340,9 +340,9 @@ function Avatar({ src, name }: { src: string | null; name: string }) {
 
 function StreakBadge({ value }: { value: number }) {
   return (
-    <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-br from-ember/30 to-flame/20 border border-flame/40">
-      <span className="text-[14px] leading-none animate-flicker">🔥</span>
-      <span className="font-mono text-xs font-bold text-ember">{value}</span>
+    <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-br from-orange-500/25 to-amber-400/20 border border-orange-400/45">
+      <span className="text-[14px] leading-none animate-flicker text-orange-400">🔥</span>
+      <span className="font-mono text-xs font-bold text-orange-300">{value}</span>
     </div>
   );
 }
