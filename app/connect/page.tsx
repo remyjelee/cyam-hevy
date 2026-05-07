@@ -6,6 +6,7 @@ export default function ConnectPage() {
   const [name, setName] = useState('');
   const [status, setStatus] = useState<string | null>(null);
   const [statusName, setStatusName] = useState<string | null>(null);
+  const [connectAssetMissing, setConnectAssetMissing] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -21,7 +22,7 @@ export default function ConnectPage() {
   };
 
   const stravaButtonClass =
-    'w-full px-6 py-4 rounded-lg transition-colors text-white font-semibold text-base';
+    'w-full flex items-center justify-center rounded-lg transition-colors hover:brightness-110';
   const stravaButtonStyle = { backgroundColor: '#FC4C02' } as const;
 
   if (status === 'success') {
@@ -137,7 +138,20 @@ export default function ConnectPage() {
           style={stravaButtonStyle}
           aria-label="Connect with Strava"
         >
-          Connect with Strava
+          {!connectAssetMissing ? (
+            // Official asset path: public/strava/connect-with-strava.png
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src="/strava/connect-with-strava.png"
+              alt="Connect with Strava"
+              className="h-12 w-auto"
+              onError={() => setConnectAssetMissing(true)}
+            />
+          ) : (
+            <span className="px-6 py-4 text-white font-semibold text-base">
+              Connect with Strava
+            </span>
+          )}
         </button>
 
         <p className="text-[11px] text-muted leading-relaxed pt-2">

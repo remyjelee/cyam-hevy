@@ -11,6 +11,7 @@ export default function AdminPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [poweredAssetMissing, setPoweredAssetMissing] = useState(false);
 
   // Load saved password from sessionStorage so admin doesn't have to retype every page.
   useEffect(() => {
@@ -153,6 +154,29 @@ export default function AdminPage() {
       >
         Sign out
       </button>
+
+      <div className="mt-6 flex flex-col items-start gap-2 text-[11px] text-muted">
+        <a
+          href="https://www.strava.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center"
+        >
+          {!poweredAssetMissing ? (
+            // Official asset path: public/strava/powered-by-strava.png
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src="/strava/powered-by-strava.png"
+              alt="Powered by Strava"
+              className="h-5 w-auto"
+              onError={() => setPoweredAssetMissing(true)}
+            />
+          ) : (
+            <span className="uppercase tracking-widest">Powered by Strava</span>
+          )}
+        </a>
+        <p>This admin tool is independent and is not sponsored by Strava.</p>
+      </div>
     </main>
   );
 }

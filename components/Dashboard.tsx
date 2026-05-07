@@ -78,6 +78,7 @@ function usePresence(): number {
 
 export default function Dashboard({ initialData }: { initialData: DashboardData }) {
   const [data, setData] = useState(initialData);
+  const [poweredAssetMissing, setPoweredAssetMissing] = useState(false);
   const progress = useChallengeProgress(data.start_date, data.end_date);
   const viewers = usePresence();
 
@@ -168,7 +169,18 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
             rel="noopener noreferrer"
             className="inline-flex items-center px-2.5 py-1 text-[10px] uppercase tracking-widest text-muted hover:text-bone transition-colors"
           >
-            Powered by Strava
+            {!poweredAssetMissing ? (
+              // Official asset path: public/strava/powered-by-strava.png
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src="/strava/powered-by-strava.png"
+                alt="Powered by Strava"
+                className="h-5 w-auto"
+                onError={() => setPoweredAssetMissing(true)}
+              />
+            ) : (
+              'Powered by Strava'
+            )}
           </a>
           <div className="text-[10px] text-muted uppercase tracking-widest text-center">
             Synced{' '}
