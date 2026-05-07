@@ -30,7 +30,8 @@ export default function ConnectPage() {
           Welcome, <span className="text-flame font-medium">{statusName}</span>.
         </p>
         <p className="text-sm text-muted mb-8">
-          Your workouts will appear automatically. SEE YOU AT ANYTIME FITNESS!
+          Your workouts will appear automatically. <br></br>
+          See you at ANYTIME FITNESS!
         </p>
         <a
           href="/"
@@ -103,11 +104,11 @@ export default function ConnectPage() {
         CYAM Hevy Challenge
       </div>
       <h1 className="font-display text-5xl uppercase leading-none mb-4">
-        Join the<span className="text-flame">challenge</span>
+        Join <span className="text-flame">Season 2</span>
       </h1>
       <p className="text-bone/80 mb-1">4 workouts a week. 30+ minutes each.</p>
       <p className="text-muted text-sm mb-8">
-        Miss one? $10 penalty. With the pool we have BBQ or go camping 👀 
+        Miss one? $10 penalty. With the pool we have BBQ or go camping 👀
       </p>
 
       <div className="space-y-3">
