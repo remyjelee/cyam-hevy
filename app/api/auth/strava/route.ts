@@ -4,7 +4,7 @@ import { buildAuthorizeUrl } from '@/lib/strava';
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? req.nextUrl.origin;
   const redirectUri = `${appUrl}/api/auth/strava/callback`;
 
   // Optional: pass `name` query param to pre-fill display name on completion.

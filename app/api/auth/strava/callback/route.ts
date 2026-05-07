@@ -5,11 +5,12 @@ import { getServerSupabase } from '@/lib/supabase';
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? req.nextUrl.origin;
   const url = req.nextUrl;
   const error = url.searchParams.get('error');
   if (error) {
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/connect?status=denied`,
+      `${appUrl}/connect?status=denied`,
     );
   }
 
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest) {
 
   if (!code) {
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/connect?status=error&reason=no_code`,
+      `${appUrl}/connect?status=error&reason=no_code`,
     );
   }
 
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest) {
   // bounce back. We can't read their workouts otherwise.
   if (!scope.includes('activity:read_all')) {
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/connect?status=missing_scope`,
+      `${appUrl}/connect?status=missing_scope`,
     );
   }
 
@@ -37,13 +38,13 @@ export async function GET(req: NextRequest) {
   } catch (e) {
     console.error('Token exchange failed', e);
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/connect?status=error&reason=exchange_failed`,
+      `${appUrl}/connect?status=error&reason=exchange_failed`,
     );
   }
 
   if (!token.athlete) {
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/connect?status=error&reason=no_athlete`,
+      `${appUrl}/connect?status=error&reason=no_athlete`,
     );
   }
 
@@ -71,11 +72,11 @@ export async function GET(req: NextRequest) {
   if (upsertError) {
     console.error('User upsert failed', upsertError);
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/connect?status=error&reason=db`,
+      `${appUrl}/connect?status=error&reason=db`,
     );
   }
 
   return NextResponse.redirect(
-    `${process.env.NEXT_PUBLIC_APP_URL}/connect?status=success&name=${encodeURIComponent(displayName)}`,
+    `${appUrl}/connect?status=success&name=${encodeURIComponent(displayName)}`,
   );
 }

@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   }
 
   const cronSecret = process.env.CRON_SECRET;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? req.nextUrl.origin;
 
   // Call our own cron endpoint with the bearer.
   const res = await fetch(`${appUrl}/api/cron/sync`, {
