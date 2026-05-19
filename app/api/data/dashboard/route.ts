@@ -86,9 +86,23 @@ export async function GET() {
     .select('user_id, heart_used')
     .in('user_id', userIds)
     .eq('week_start', weekStart);
-  const heartUsedThisWeek = new Map<string, boolean>(
-    (thisWeekResults ?? []).map((r: any) => [r.user_id, r.heart_used]),
+  const heartUsedFromWeeklyResults = new Map<string, boolean>(
+    (thisWeekResults ?? []).map((r: any) => [r.user_id, Boolean(r.heart_used)]),
   );
+
+  // Cross-check from heart_log in case weekly_results is stale/out-of-sync.
+  const { data: thisWeekHeartLog } = await db
+    .from('heart_log')
+    .select('user_id, action')
+    .in('user_id', userIds)
+    .eq('week_start', weekStart);
+
+  const heartNetByUser = new Map<string, number>();
+  for (const row of thisWeekHeartLog ?? []) {
+    const userId = (row as any).user_id as string;
+    const delta = (row as any).action === 'used' ? 1 : -1;
+    heartNetByUser.set(userId, (heartNetByUser.get(userId) ?? 0) + delta);
+  }
 
   // 5) All finalized weekly_results for streaks and total owed.
   const { data: allResults } = await db
@@ -140,7 +154,9 @@ export async function GET() {
       hearts_remaining: heartsByUser.get(u.id) ?? config.hearts_per_user,
       current_week_days: dayFlags,
       current_week_days_count: days.size,
-      current_week_heart_used: heartUsedThisWeek.get(u.id) ?? false,
+      current_week_heart_used:
+        (heartUsedFromWeeklyResults.get(u.id) ?? false) ||
+        (heartNetByUser.get(u.id) ?? 0) > 0,
       streak,
       total_owed: totalOwed,
     };

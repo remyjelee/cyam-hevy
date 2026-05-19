@@ -44,6 +44,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'no hearts remaining' }, { status: 400 });
   }
 
+  // Cross-check against heart_log so we still block double-use even if
+  // weekly_results somehow became out-of-sync.
+  const { data: heartLogs, error: heartLogErr } = await db
+    .from('heart_log')
+    .select('action')
+    .eq('user_id', userId)
+    .eq('week_start', weekStart);
+
+  if (heartLogErr) {
+    console.error('heart_log check failed', heartLogErr);
+    return NextResponse.json({ error: 'db read failed' }, { status: 500 });
+  }
+
+  const usedCount = (heartLogs ?? []).filter((r: any) => r.action === 'used').length;
+  const refundCount = (heartLogs ?? []).filter((r: any) => r.action === 'refund').length;
+  const netUsedThisWeek = usedCount - refundCount;
+
   // Check if a weekly_results row exists for this user+week.
   const { data: existing, error: existErr } = await db
     .from('weekly_results')
@@ -58,7 +75,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Guard: already used this week.
-  if (existing?.heart_used) {
+  if (existing?.heart_used || netUsedThisWeek > 0) {
     return NextResponse.json(
       { error: 'heart already used this week' },
       { status: 400 },

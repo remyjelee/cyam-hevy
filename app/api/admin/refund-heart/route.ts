@@ -39,18 +39,46 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'db read failed' }, { status: 500 });
   }
 
-  if (!existing || !existing.heart_used) {
+  // Also cross-check heart_log in case weekly_results got out-of-sync.
+  const { data: heartLogs, error: heartLogErr } = await db
+    .from('heart_log')
+    .select('action')
+    .eq('user_id', userId)
+    .eq('week_start', weekStart);
+
+  if (heartLogErr) {
+    console.error('heart_log check failed', heartLogErr);
+    return NextResponse.json({ error: 'db read failed' }, { status: 500 });
+  }
+
+  const usedCount = (heartLogs ?? []).filter((r: any) => r.action === 'used').length;
+  const refundCount = (heartLogs ?? []).filter((r: any) => r.action === 'refund').length;
+  const netUsedThisWeek = usedCount - refundCount;
+  const hasHeartUsed = Boolean(existing?.heart_used) || netUsedThisWeek > 0;
+
+  if (!hasHeartUsed) {
     return NextResponse.json(
       { error: 'no heart to refund this week' },
       { status: 400 },
     );
   }
 
-  // Update by id for precision.
-  const { error: updateErr } = await db
-    .from('weekly_results')
-    .update({ heart_used: false, computed_at: new Date().toISOString() })
-    .eq('id', existing.id);
+  // Update by id when row exists; otherwise insert a normalized row.
+  const updatePayload = {
+    user_id: userId,
+    week_start: weekStart,
+    heart_used: false,
+    computed_at: new Date().toISOString(),
+  };
+
+  const { error: updateErr } = existing
+    ? await db
+        .from('weekly_results')
+        .update({ heart_used: false, computed_at: new Date().toISOString() })
+        .eq('id', existing.id)
+    : await db.from('weekly_results').upsert(updatePayload, {
+        onConflict: 'user_id,week_start',
+      });
 
   if (updateErr) {
     console.error('weekly_results update failed', updateErr);
