@@ -16,15 +16,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'invalid body' }, { status: 400 });
   }
 
-  const clientId = (body.client_id as string) || '';
-  const clientSecret = (body.client_secret as string) || '';
+  const clientId = ((body.client_id as string) || '').trim();
+  const clientSecret = ((body.client_secret as string) || '').trim();
   const name = (body.name as string) || '';
 
-  // Fall back to global env vars if user didn't provide their own.
-  const finalClientId = clientId || process.env.STRAVA_CLIENT_ID || '';
-  const finalClientSecret = clientSecret || process.env.STRAVA_CLIENT_SECRET || '';
-
-  if (!finalClientId || !finalClientSecret) {
+  // Strict mode: require per-user app credentials to avoid silently falling
+  // back to the global app that may be athlete-capped.
+  if (!clientId || !clientSecret) {
     return NextResponse.json(
       { error: 'missing_credentials' },
       { status: 400 },
@@ -43,8 +41,8 @@ export async function POST(req: NextRequest) {
 
   const { error: insertError } = await db.from('pending_connections').insert({
     token,
-    strava_client_id: finalClientId,
-    strava_client_secret: finalClientSecret,
+    strava_client_id: clientId,
+    strava_client_secret: clientSecret,
     display_name: name,
   });
 
@@ -55,7 +53,7 @@ export async function POST(req: NextRequest) {
 
   // Only the opaque token goes into the OAuth state — no secrets in the URL.
   const authorizeUrl = buildAuthorizeUrl(
-    { clientId: finalClientId, clientSecret: finalClientSecret },
+    { clientId, clientSecret },
     redirectUri,
     token,
   );
