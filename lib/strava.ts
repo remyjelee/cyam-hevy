@@ -6,6 +6,11 @@
 const STRAVA_OAUTH = 'https://www.strava.com/oauth';
 const STRAVA_API = 'https://www.strava.com/api/v3';
 
+export interface StravaCredentials {
+  clientId: string;
+  clientSecret: string;
+}
+
 export interface StravaTokenResponse {
   token_type: string;
   expires_at: number; // unix seconds
@@ -37,9 +42,9 @@ export interface StravaActivity {
  * Build the URL we send users to so they can authorize the app.
  * Scope `activity:read_all` is required to see private activities.
  */
-export function buildAuthorizeUrl(redirectUri: string, state?: string): string {
+export function buildAuthorizeUrl(creds: StravaCredentials, redirectUri: string, state?: string): string {
   const params = new URLSearchParams({
-    client_id: process.env.STRAVA_CLIENT_ID!,
+    client_id: creds.clientId,
     redirect_uri: redirectUri,
     response_type: 'code',
     approval_prompt: 'auto',
@@ -52,13 +57,13 @@ export function buildAuthorizeUrl(redirectUri: string, state?: string): string {
 /**
  * Exchange the one-time `code` from the OAuth callback for a refresh+access token.
  */
-export async function exchangeCodeForToken(code: string): Promise<StravaTokenResponse> {
+export async function exchangeCodeForToken(creds: StravaCredentials, code: string): Promise<StravaTokenResponse> {
   const res = await fetch(`${STRAVA_OAUTH}/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      client_id: process.env.STRAVA_CLIENT_ID,
-      client_secret: process.env.STRAVA_CLIENT_SECRET,
+      client_id: creds.clientId,
+      client_secret: creds.clientSecret,
       code,
       grant_type: 'authorization_code',
     }),
@@ -74,13 +79,13 @@ export async function exchangeCodeForToken(code: string): Promise<StravaTokenRes
  * Refresh an expired access token using a refresh token.
  * Strava may rotate the refresh token; the response is the source of truth.
  */
-export async function refreshAccessToken(refreshToken: string): Promise<StravaTokenResponse> {
+export async function refreshAccessToken(creds: StravaCredentials, refreshToken: string): Promise<StravaTokenResponse> {
   const res = await fetch(`${STRAVA_OAUTH}/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      client_id: process.env.STRAVA_CLIENT_ID,
-      client_secret: process.env.STRAVA_CLIENT_SECRET,
+      client_id: creds.clientId,
+      client_secret: creds.clientSecret,
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
     }),

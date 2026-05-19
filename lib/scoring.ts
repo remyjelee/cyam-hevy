@@ -6,6 +6,7 @@ import {
   refreshAccessToken,
   dateToUnixAEST,
   StravaActivity,
+  StravaCredentials,
 } from './strava';
 
 // =============================================================================
@@ -17,10 +18,19 @@ interface UserRow {
   id: string;
   display_name: string;
   strava_athlete_id: number;
+  strava_client_id: string | null;
+  strava_client_secret: string | null;
   strava_refresh_token: string;
   strava_access_token: string | null;
   strava_token_expires_at: string | null;
   active: boolean;
+}
+
+function userCreds(user: UserRow): StravaCredentials {
+  return {
+    clientId: user.strava_client_id || process.env.STRAVA_CLIENT_ID || '',
+    clientSecret: user.strava_client_secret || process.env.STRAVA_CLIENT_SECRET || '',
+  };
 }
 
 /**
@@ -41,7 +51,7 @@ async function ensureAccessToken(
     return user.strava_access_token;
   }
 
-  const tok = await refreshAccessToken(user.strava_refresh_token);
+  const tok = await refreshAccessToken(userCreds(user), user.strava_refresh_token);
   await db
     .from('users')
     .update({

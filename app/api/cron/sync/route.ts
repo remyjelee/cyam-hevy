@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
   // Load active users.
   const { data: users, error: usersErr } = await db
     .from('users')
-    .select('*')
+    .select('id, display_name, strava_athlete_id, strava_client_id, strava_client_secret, strava_refresh_token, strava_access_token, strava_token_expires_at, active')
     .eq('active', true);
   if (usersErr) {
     return NextResponse.json({ error: usersErr.message }, { status: 500 });

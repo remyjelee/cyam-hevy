@@ -30,6 +30,8 @@ create table if not exists users (
   id uuid primary key default gen_random_uuid(),
   display_name text not null,
   strava_athlete_id bigint unique not null,
+  strava_client_id text,
+  strava_client_secret text,
   strava_refresh_token text not null,
   -- access token and expiry are cached but re-fetched as needed
   strava_access_token text,
@@ -89,6 +91,19 @@ create table if not exists heart_log (
 
 create index if not exists heart_log_user_idx on heart_log(user_id, created_at desc);
 
+-- ----- pending_connections: short-lived credential stash for OAuth flow ------
+-- Credentials are stored here server-side during the OAuth redirect dance,
+-- then deleted on callback. Rows auto-expire as a safety net.
+create table if not exists pending_connections (
+  token text primary key,
+  strava_client_id text not null,
+  strava_client_secret text not null,
+  display_name text not null default '',
+  created_at timestamptz not null default now(),
+  -- rows older than 10 minutes are stale and should be ignored/cleaned up
+  expires_at timestamptz not null default (now() + interval '10 minutes')
+);
+
 -- =============================================================================
 -- Row Level Security
 -- The dashboard reads via a server-side API route using the service role key,
@@ -100,6 +115,7 @@ alter table users enable row level security;
 alter table weekly_results enable row level security;
 alter table workouts enable row level security;
 alter table heart_log enable row level security;
+alter table pending_connections enable row level security;
 
 -- =============================================================================
 -- Helper view: how many hearts each user has remaining

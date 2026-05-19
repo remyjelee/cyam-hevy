@@ -7,16 +7,15 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? req.nextUrl.origin;
   const url = req.nextUrl;
+
   const error = url.searchParams.get('error');
   if (error) {
-    return NextResponse.redirect(
-      `${appUrl}/connect?status=denied`,
-    );
+    return NextResponse.redirect(`${appUrl}/connect?status=denied`);
   }
 
   const code = url.searchParams.get('code');
   const scope = url.searchParams.get('scope') || '';
-  const stateName = url.searchParams.get('state') || '';
+  const token = url.searchParams.get('state') || '';
 
   if (!code) {
     return NextResponse.redirect(
@@ -24,17 +23,52 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Strava requires the user to grant activity:read_all - if they unchecked it,
-  // bounce back. We can't read their workouts otherwise.
-  if (!scope.includes('activity:read_all')) {
+  if (!token) {
     return NextResponse.redirect(
-      `${appUrl}/connect?status=missing_scope`,
+      `${appUrl}/connect?status=error&reason=no_state`,
     );
   }
 
-  let token;
+  const db = getServerSupabase();
+
+  // Look up the stashed credentials using the token.
+  const { data: pending, error: lookupError } = await db
+    .from('pending_connections')
+    .select('strava_client_id, strava_client_secret, display_name, expires_at')
+    .eq('token', token)
+    .single();
+
+  if (lookupError || !pending) {
+    return NextResponse.redirect(
+      `${appUrl}/connect?status=error&reason=expired_or_invalid`,
+    );
+  }
+
+  // Check expiry.
+  if (new Date(pending.expires_at) < new Date()) {
+    // Clean up the expired row.
+    await db.from('pending_connections').delete().eq('token', token);
+    return NextResponse.redirect(
+      `${appUrl}/connect?status=error&reason=expired_or_invalid`,
+    );
+  }
+
+  // Delete the pending row immediately — it's single-use.
+  await db.from('pending_connections').delete().eq('token', token);
+
+  // Strava requires the user to grant activity:read_all.
+  if (!scope.includes('activity:read_all')) {
+    return NextResponse.redirect(`${appUrl}/connect?status=missing_scope`);
+  }
+
+  const creds = {
+    clientId: pending.strava_client_id,
+    clientSecret: pending.strava_client_secret,
+  };
+
+  let tokenResponse;
   try {
-    token = await exchangeCodeForToken(code);
+    tokenResponse = await exchangeCodeForToken(creds, code);
   } catch (e) {
     console.error('Token exchange failed', e);
     return NextResponse.redirect(
@@ -42,28 +76,32 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  if (!token.athlete) {
+  if (!tokenResponse.athlete) {
     return NextResponse.redirect(
       `${appUrl}/connect?status=error&reason=no_athlete`,
     );
   }
 
-  const db = getServerSupabase();
-
-  // Build display name: prefer ?name= from invite link; else "First L."
+  // Build display name: prefer user-provided name; else "First L."
   const fallbackName =
-    `${token.athlete.firstname} ${token.athlete.lastname.charAt(0)}.`.trim();
-  const displayName = decodeURIComponent(stateName).trim() || fallbackName;
+    `${tokenResponse.athlete.firstname} ${tokenResponse.athlete.lastname.charAt(0)}.`.trim();
+  const displayName = (pending.display_name || '').trim() || fallbackName;
 
   // Upsert by strava_athlete_id so re-authorizing the same person is idempotent.
   const { error: upsertError } = await db.from('users').upsert(
     {
-      strava_athlete_id: token.athlete.id,
+      strava_athlete_id: tokenResponse.athlete.id,
       display_name: displayName,
-      strava_access_token: token.access_token,
-      strava_refresh_token: token.refresh_token,
-      strava_token_expires_at: new Date(token.expires_at * 1000).toISOString(),
-      profile_image_url: token.athlete.profile_medium || token.athlete.profile,
+      strava_client_id: creds.clientId,
+      strava_client_secret: creds.clientSecret,
+      strava_access_token: tokenResponse.access_token,
+      strava_refresh_token: tokenResponse.refresh_token,
+      strava_token_expires_at: new Date(
+        tokenResponse.expires_at * 1000,
+      ).toISOString(),
+      profile_image_url:
+        tokenResponse.athlete.profile_medium ||
+        tokenResponse.athlete.profile,
       active: true,
     },
     { onConflict: 'strava_athlete_id' },

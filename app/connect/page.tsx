@@ -4,9 +4,13 @@ import { useEffect, useState } from 'react';
 
 export default function ConnectPage() {
   const [name, setName] = useState('');
+  const [clientId, setClientId] = useState('');
+  const [clientSecret, setClientSecret] = useState('');
+  const [showSetup, setShowSetup] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [statusName, setStatusName] = useState<string | null>(null);
   const [connectAssetMissing, setConnectAssetMissing] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -14,15 +18,31 @@ export default function ConnectPage() {
     setStatusName(params.get('name'));
   }, []);
 
-  const handleConnect = () => {
-    const url = name.trim()
-      ? `/api/auth/strava?name=${encodeURIComponent(name.trim())}`
-      : '/api/auth/strava';
-    window.location.href = url;
+  const handleConnect = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/strava', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_id: clientId.trim() || undefined,
+          client_secret: clientSecret.trim() || undefined,
+          name: name.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) {
+        window.location.href = `/connect?status=error&reason=${data.error || 'unknown'}`;
+        return;
+      }
+      window.location.href = data.url;
+    } catch {
+      window.location.href = '/connect?status=error&reason=network';
+    }
   };
 
   const stravaButtonClass =
-    'w-full flex items-center justify-center rounded-lg transition-colors hover:brightness-110';
+    'w-full flex items-center justify-center rounded-lg transition-colors hover:brightness-110 disabled:opacity-60';
   const stravaButtonStyle = { backgroundColor: '#FC4C02' } as const;
 
   if (status === 'success') {
@@ -54,13 +74,9 @@ export default function ConnectPage() {
         <p className="text-muted mb-6">
           You need to allow access for the challenge to track your workouts.
         </p>
-        <button
-          onClick={handleConnect}
-          className="px-5 py-3 rounded-lg flex items-center justify-center hover:brightness-110 text-white font-semibold"
-          style={{ backgroundColor: '#FC4C02' }}
-        >
-          Try again with Strava
-        </button>
+        <a href="/connect" className="text-flame hover:underline">
+          ← Start over
+        </a>
       </Frame>
     );
   }
@@ -76,13 +92,9 @@ export default function ConnectPage() {
           <span className="text-bone">&ldquo;View data about your activities&rdquo;</span>{' '}
           checkbox ticked. Otherwise we can&apos;t see your workouts.
         </p>
-        <button
-          onClick={handleConnect}
-          className="px-5 py-3 rounded-lg flex items-center justify-center hover:brightness-110 text-white font-semibold"
-          style={{ backgroundColor: '#FC4C02' }}
-        >
-          Try again with Strava
-        </button>
+        <a href="/connect" className="text-flame hover:underline">
+          ← Start over
+        </a>
       </Frame>
     );
   }
@@ -91,16 +103,16 @@ export default function ConnectPage() {
     return (
       <Frame>
         <h1 className="font-display text-3xl uppercase mb-4">Something went wrong</h1>
-        <p className="text-muted mb-6">
+        <p className="text-muted mb-4">
           Please try again, or message the organizer.
         </p>
-        <button
-          onClick={handleConnect}
-          className="px-5 py-3 rounded-lg flex items-center justify-center hover:brightness-110 text-white font-semibold"
-          style={{ backgroundColor: '#FC4C02' }}
-        >
-          Try again with Strava
-        </button>
+        <p className="text-muted text-sm mb-6">
+          If you created your own Strava app, check that Callback Domain is set
+          to <span className="font-mono text-bone">{typeof window !== 'undefined' ? window.location.hostname : ''}</span>.
+        </p>
+        <a href="/connect" className="text-flame hover:underline">
+          ← Start over
+        </a>
       </Frame>
     );
   }
@@ -118,6 +130,39 @@ export default function ConnectPage() {
         Miss one? -$10. The pool buys dinner on the final week.
       </p>
 
+      <button
+        type="button"
+        onClick={() => setShowSetup((v) => !v)}
+        className="w-full text-left text-[11px] uppercase tracking-widest text-muted mb-3 hover:text-bone"
+      >
+        {showSetup ? '▼' : '▶'} How to create your own Strava app (optional)
+      </button>
+
+      {showSetup && (
+        <ol className="list-decimal list-inside text-sm text-muted space-y-2 mb-6 pl-1">
+          <li>
+            Open{' '}
+            <a
+              href="https://www.strava.com/settings/api"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-flame underline"
+            >
+              strava.com/settings/api
+            </a>
+          </li>
+          <li>
+            Fill in: App Name = &ldquo;CYAM [your name]&rdquo;, Category = &ldquo;Training&rdquo;,
+            Club = leave blank, Website = {typeof window !== 'undefined' ? window.location.origin : ''},
+            Description = &ldquo;gym challenge tracker&rdquo;, Callback Domain ={' '}
+            {typeof window !== 'undefined' ? window.location.hostname : ''}
+          </li>
+          <li>Click Create</li>
+          <li>Copy Client ID and Client Secret (click &ldquo;Show&rdquo; to reveal the secret)</li>
+          <li>Paste them below</li>
+        </ol>
+      )}
+
       <div className="space-y-3">
         <label className="block">
           <span className="block text-[11px] uppercase tracking-widest text-muted mb-1.5">
@@ -132,13 +177,49 @@ export default function ConnectPage() {
           />
         </label>
 
+        <label className="block">
+          <span className="block text-[11px] uppercase tracking-widest text-muted mb-1.5">
+            Strava Client ID
+          </span>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={clientId}
+            onChange={(e) => setClientId(e.target.value)}
+            placeholder="e.g. 123456"
+            className="w-full px-4 py-3 rounded-lg bg-elevated border border-line focus:border-flame focus:outline-none text-bone font-mono"
+          />
+        </label>
+
+        <label className="block">
+          <span className="block text-[11px] uppercase tracking-widest text-muted mb-1.5">
+            Strava Client Secret
+          </span>
+          <input
+            type="password"
+            value={clientSecret}
+            onChange={(e) => setClientSecret(e.target.value)}
+            placeholder="Paste your Client Secret"
+            className="w-full px-4 py-3 rounded-lg bg-elevated border border-line focus:border-flame focus:outline-none text-bone font-mono"
+          />
+        </label>
+
+        <p className="text-[11px] text-muted leading-relaxed">
+          Leave these blank if the organizer told you to skip this step.
+        </p>
+
         <button
           onClick={handleConnect}
+          disabled={loading}
           className={stravaButtonClass}
           style={stravaButtonStyle}
           aria-label="Connect with Strava"
         >
-          {!connectAssetMissing ? (
+          {loading ? (
+            <span className="px-6 py-4 text-white font-semibold text-base">
+              Connecting...
+            </span>
+          ) : !connectAssetMissing ? (
             // Official asset path: public/strava/connect-with-strava.png
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -156,8 +237,8 @@ export default function ConnectPage() {
 
         <p className="text-[11px] text-muted leading-relaxed pt-2">
           We read your activity list to count qualifying workouts. We never
-          post anything. Your refresh token is stored encrypted at Supabase
-          and only used by the Sunday cron.{' '}
+          post anything. Your Client Secret and refresh token are stored securely
+          on the server and only used by the Sunday cron.{' '}
           <a href="/privacy" className="underline hover:text-bone">
             Privacy
           </a>
@@ -173,7 +254,7 @@ export default function ConnectPage() {
 
 function Frame({ children }: { children: React.ReactNode }) {
   return (
-    <main className="relative min-h-screen flex items-center justify-center px-5">
+    <main className="relative min-h-screen flex items-center justify-center px-5 py-8">
       <div className="grain absolute inset-0 pointer-events-none" />
       <div className="relative w-full max-w-md p-7 rounded-2xl border border-line bg-surface">
         {children}

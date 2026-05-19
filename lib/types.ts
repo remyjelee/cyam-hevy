@@ -16,6 +16,8 @@ export interface User {
   id: string;
   display_name: string;
   strava_athlete_id: number;
+  strava_client_id: string | null;
+  strava_client_secret: string | null;
   strava_refresh_token: string;
   strava_access_token: string | null;
   strava_token_expires_at: string | null;
