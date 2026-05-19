@@ -3,7 +3,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'CYAM Hevy Challenge',
-  description: '100 days. 4 workouts a week. Or you pay.',
+  description: '100+ days. 4 workouts a week. Or you pay.',
 };
 
 export const viewport: Viewport = {

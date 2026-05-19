@@ -158,12 +158,13 @@ export async function GET() {
       display_color: u.display_color ?? null,
       profile_image_url: u.profile_image_url,
       hearts_remaining: heartsByUser.get(u.id) ?? config.hearts_per_user,
-      current_week_days: hasStarted ? dayFlags : Array(7).fill(false),
-      current_week_days_count: hasStarted ? days.size : 0,
+      // Show live week activity even before challenge start so users can verify
+      // their integration and preview the dashboard experience.
+      current_week_days: dayFlags,
+      current_week_days_count: days.size,
       current_week_heart_used:
-        hasStarted &&
-        ((heartUsedFromWeeklyResults.get(u.id) ?? false) ||
-          (heartNetByUser.get(u.id) ?? 0) > 0),
+        (heartUsedFromWeeklyResults.get(u.id) ?? false) ||
+        (heartNetByUser.get(u.id) ?? 0) > 0,
       streak: hasStarted ? streak : 0,
       total_owed: totalOwed,
     };

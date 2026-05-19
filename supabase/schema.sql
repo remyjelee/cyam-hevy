@@ -20,9 +20,9 @@ create table if not exists challenge_config (
   constraint singleton check (id = 1)
 );
 
--- Seed the config: challenge runs Sun May 24 2026 -> Tue Sep 1 2026 (100 days)
+-- Seed the config: challenge runs Sun May 24 2026 -> Sun Sep 6 2026
 insert into challenge_config (id, start_date, end_date)
-values (1, '2026-05-24', '2026-09-01')
+values (1, '2026-05-24', '2026-09-06')
 on conflict (id) do nothing;
 
 -- ----- users: one row per friend in the challenge ----------------------------

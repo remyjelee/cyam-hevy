@@ -128,8 +128,10 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
           <div className="mt-6">
             <div className="flex items-baseline justify-between mb-2">
               <div>
-                <span className="font-display text-5xl sm:text-6xl text-bone drop-shadow-[0_0_14px_rgba(252,76,2,0.45)] transition-transform duration-200 hover:scale-105">
-                  {progress.remaining}
+                <span className="days-count-wrap">
+                  <span className="days-count-text font-display text-5xl sm:text-6xl transition-transform duration-200 hover:scale-105">
+                    {progress.remaining}
+                  </span>
                 </span>
                 <span className="ml-2 text-xs uppercase tracking-widest text-muted">
                   days left

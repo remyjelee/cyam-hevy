@@ -19,9 +19,9 @@ const config: Config = {
         line: '#2A2A2A',
         bone: '#F5F2EA',
         muted: '#7A7A7A',
-        // Keep app accent distinct from Strava brand orange (#FC4C02).
-        flame: '#3B82F6',
-        ember: '#60A5FA',
+        // Primary app accent (E').
+        flame: '#FF4D2E',
+        ember: '#FF7A63',
         live: '#00D26A',
         heart: '#FF3B47',
         gold: '#FFC93C',
