@@ -379,13 +379,10 @@ function Hearts({ total, remaining }: { total: number; remaining: number }) {
   return (
     <div className="inline-flex items-center gap-1">
       {Array.from({ length: total }).map((_, i) => (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <span
           key={i}
-          src={i < remaining ? '/ui/heart-full.svg' : '/ui/heart-empty.svg'}
-          alt={i < remaining ? 'heart available' : 'heart depleted'}
-          className="w-4 h-4"
-          style={{ imageRendering: 'pixelated' }}
+          aria-label={i < remaining ? 'heart available' : 'heart depleted'}
+          className={`nes-heart ${i < remaining ? '' : 'is-empty'}`}
         />
       ))}
     </div>

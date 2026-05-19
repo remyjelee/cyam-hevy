@@ -211,19 +211,6 @@ export default function ConnectPage() {
           />
         </label>
 
-        <p className="text-sm text-muted leading-relaxed">
-          Create your app at{' '}
-          <a
-            href="https://www.strava.com/settings/api"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline hover:text-bone"
-          >
-            strava.com/settings/api
-          </a>
-          . Use Callback Domain: {typeof window !== 'undefined' ? window.location.hostname : ''}.
-        </p>
-
         <button
           onClick={handleConnect}
           disabled={loading}
