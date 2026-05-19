@@ -82,15 +82,29 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
   const progress = useChallengeProgress(data.start_date, data.end_date);
   const viewers = usePresence();
 
-  // Refresh dashboard data every 60s.
+  async function refreshData() {
+    try {
+      const res = await fetch(`/api/data/dashboard?t=${Date.now()}`, { cache: 'no-store' });
+      if (res.ok) setData(await res.json());
+    } catch {
+      // ignore transient refresh failures
+    }
+  }
+
+  // Refresh dashboard data frequently so new joins appear quickly.
   useEffect(() => {
-    const t = setInterval(async () => {
-      try {
-        const res = await fetch('/api/data/dashboard', { cache: 'no-store' });
-        if (res.ok) setData(await res.json());
-      } catch { /* ignore */ }
-    }, 60_000);
-    return () => clearInterval(t);
+    const t = setInterval(refreshData, 15_000);
+    const onFocus = () => refreshData();
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') refreshData();
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, []);
 
   return (
@@ -114,7 +128,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
           <div className="mt-6">
             <div className="flex items-baseline justify-between mb-2">
               <div>
-                <span className="font-display text-5xl sm:text-6xl text-bone">
+                <span className="font-display text-5xl sm:text-6xl text-bone drop-shadow-[0_0_14px_rgba(252,76,2,0.45)] transition-transform duration-200 hover:scale-105">
                   {progress.remaining}
                 </span>
                 <span className="ml-2 text-xs uppercase tracking-widest text-muted">
@@ -156,7 +170,14 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
             </div>
           ) : (
             data.users.map((u, i) => (
-              <UserRow key={u.id} user={u} index={i} todayDow={progress.todayDow} required={data.required_days_per_week} />
+              <UserRow
+                key={u.id}
+                user={u}
+                index={i}
+                todayDow={progress.todayDow}
+                required={data.required_days_per_week}
+                heartsPerUser={data.hearts_per_user}
+              />
             ))
           )}
         </section>
@@ -246,11 +267,13 @@ function UserRow({
   index,
   todayDow,
   required,
+  heartsPerUser,
 }: {
   user: DashboardUser;
   index: number;
   todayDow: number;
   required: number;
+  heartsPerUser: number;
 }) {
   const isOnTrack = user.current_week_days_count >= required || user.current_week_heart_used;
   const danger =
@@ -268,11 +291,14 @@ function UserRow({
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-display text-xl leading-none truncate">
+            <span
+              className="font-pixel text-sm sm:text-base leading-none truncate"
+              style={{ color: user.display_color ?? '#F5F2EA' }}
+            >
               {user.display_name}
             </span>
             {user.streak > 0 && <StreakBadge value={user.streak} />}
-            <Hearts total={3} remaining={user.hearts_remaining} />
+            <Hearts total={heartsPerUser} remaining={user.hearts_remaining} />
           </div>
 
           <div className="mt-1.5 flex items-center gap-3 text-[11px] text-muted">
@@ -349,16 +375,16 @@ function StreakBadge({ value }: { value: number }) {
 
 function Hearts({ total, remaining }: { total: number; remaining: number }) {
   return (
-    <div className="inline-flex items-center gap-0.5">
+    <div className="inline-flex items-center gap-1">
       {Array.from({ length: total }).map((_, i) => (
-        <span
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
           key={i}
-          className={`text-xs leading-none ${
-            i < remaining ? 'opacity-100' : 'opacity-25 grayscale'
-          }`}
-        >
-          ❤️
-        </span>
+          src={i < remaining ? '/ui/heart-full.svg' : '/ui/heart-empty.svg'}
+          alt={i < remaining ? 'heart available' : 'heart depleted'}
+          className="w-4 h-4"
+          style={{ imageRendering: 'pixelated' }}
+        />
       ))}
     </div>
   );
@@ -375,7 +401,7 @@ function DayCell({
   isToday: boolean;
   isPast: boolean;
 }) {
-  let classes = 'aspect-square rounded-md flex items-center justify-center text-[10px] font-mono uppercase border transition-all ';
+  let classes = 'aspect-square rounded-md flex items-center justify-center text-[10px] font-mono uppercase border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_0_8px_rgba(252,76,2,0.35)] ';
   if (done) {
     classes +=
       'bg-live/20 border-live/60 text-live';

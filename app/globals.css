@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Anton&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Press+Start+2P&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -35,6 +35,7 @@
 @layer utilities {
   .font-display { font-family: 'Anton', Impact, sans-serif; letter-spacing: 0.02em; }
   .font-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+  .font-pixel { font-family: 'Press Start 2P', 'JetBrains Mono', monospace; letter-spacing: 0.02em; }
 
   .grain::before {
     content: '';

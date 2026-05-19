@@ -8,6 +8,7 @@ import {
 import {
   addDays,
   currentWeekStart,
+  todayAEST,
   weekDates,
 } from '@/lib/dates';
 
@@ -29,13 +30,15 @@ export async function GET() {
   const config = configRow as ChallengeConfig;
 
   const weekStart = currentWeekStart();
+  const today = todayAEST();
+  const hasStarted = today >= config.start_date;
   const weekDateList = weekDates(weekStart);
   const weekEndExclusive = addDays(weekStart, 7);
 
   // 1) All active users.
   const { data: users } = await db
     .from('users')
-    .select('id, display_name, profile_image_url, created_at')
+    .select('id, display_name, display_color, profile_image_url, created_at')
     .eq('active', true)
     .order('created_at', { ascending: true });
 
@@ -122,7 +125,9 @@ export async function GET() {
     const days = daysByUser.get(u.id) ?? new Set<string>();
     const dayFlags = weekDateList.map((d) => days.has(d));
 
-    const userResults = resultsByUser.get(u.id) ?? [];
+    const userResults = (resultsByUser.get(u.id) ?? []).filter(
+      (r) => r.week_start >= config.start_date,
+    );
     // Streak: walk back from most recent FINALIZED week. Stop on a "miss"
     // (didn't hit required AND no heart). Current in-progress week is included
     // only if hearts used or already at required count.
@@ -150,14 +155,16 @@ export async function GET() {
     return {
       id: u.id,
       display_name: u.display_name,
+      display_color: u.display_color ?? null,
       profile_image_url: u.profile_image_url,
       hearts_remaining: heartsByUser.get(u.id) ?? config.hearts_per_user,
-      current_week_days: dayFlags,
-      current_week_days_count: days.size,
+      current_week_days: hasStarted ? dayFlags : Array(7).fill(false),
+      current_week_days_count: hasStarted ? days.size : 0,
       current_week_heart_used:
-        (heartUsedFromWeeklyResults.get(u.id) ?? false) ||
-        (heartNetByUser.get(u.id) ?? 0) > 0,
-      streak,
+        hasStarted &&
+        ((heartUsedFromWeeklyResults.get(u.id) ?? false) ||
+          (heartNetByUser.get(u.id) ?? 0) > 0),
+      streak: hasStarted ? streak : 0,
       total_owed: totalOwed,
     };
   });

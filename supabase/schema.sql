@@ -13,22 +13,23 @@ create table if not exists challenge_config (
   required_days_per_week int not null default 4,
   min_workout_seconds int not null default 1800,
   deduction_per_miss int not null default 10,
-  hearts_per_user int not null default 3,
+  hearts_per_user int not null default 2,
   -- Comma-separated Strava activity types we count.
   -- Hevy posts as "WeightTraining"; we also include "Run".
   counted_activity_types text not null default 'WeightTraining,Run',
   constraint singleton check (id = 1)
 );
 
--- Seed the config: challenge runs Sun May 10 2026 -> Sun Sep 13 2026
+-- Seed the config: challenge runs Sun May 24 2026 -> Tue Sep 1 2026 (100 days)
 insert into challenge_config (id, start_date, end_date)
-values (1, '2026-05-10', '2026-09-13')
+values (1, '2026-05-24', '2026-09-01')
 on conflict (id) do nothing;
 
 -- ----- users: one row per friend in the challenge ----------------------------
 create table if not exists users (
   id uuid primary key default gen_random_uuid(),
   display_name text not null,
+  display_color text,
   strava_athlete_id bigint unique not null,
   strava_client_id text,
   strava_client_secret text,
@@ -99,6 +100,7 @@ create table if not exists pending_connections (
   strava_client_id text not null,
   strava_client_secret text not null,
   display_name text not null default '',
+  display_color text not null default '',
   created_at timestamptz not null default now(),
   -- rows older than 10 minutes are stale and should be ignored/cleaned up
   expires_at timestamptz not null default (now() + interval '10 minutes')

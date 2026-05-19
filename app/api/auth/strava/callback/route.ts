@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { exchangeCodeForToken } from '@/lib/strava';
 import { getServerSupabase } from '@/lib/supabase';
+import { syncUser } from '@/lib/scoring';
+import { todayAEST } from '@/lib/dates';
+import { ChallengeConfig } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,7 +37,7 @@ export async function GET(req: NextRequest) {
   // Look up the stashed credentials using the token.
   const { data: pending, error: lookupError } = await db
     .from('pending_connections')
-    .select('strava_client_id, strava_client_secret, display_name, expires_at')
+    .select('strava_client_id, strava_client_secret, display_name, display_color, expires_at')
     .eq('token', token)
     .single();
 
@@ -86,12 +89,14 @@ export async function GET(req: NextRequest) {
   const fallbackName =
     `${tokenResponse.athlete.firstname} ${tokenResponse.athlete.lastname.charAt(0)}.`.trim();
   const displayName = (pending.display_name || '').trim() || fallbackName;
+  const displayColor = (pending.display_color || '').trim() || null;
 
   // Upsert by strava_athlete_id so re-authorizing the same person is idempotent.
   const { error: upsertError } = await db.from('users').upsert(
     {
       strava_athlete_id: tokenResponse.athlete.id,
       display_name: displayName,
+      display_color: displayColor,
       strava_client_id: creds.clientId,
       strava_client_secret: creds.clientSecret,
       strava_access_token: tokenResponse.access_token,
@@ -112,6 +117,25 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(
       `${appUrl}/connect?status=error&reason=db`,
     );
+  }
+
+  // Best-effort immediate sync so newly joined users see their workouts quickly.
+  try {
+    const { data: userRow } = await db
+      .from('users')
+      .select('id, display_name, strava_athlete_id, strava_client_id, strava_client_secret, strava_refresh_token, strava_access_token, strava_token_expires_at, active')
+      .eq('strava_athlete_id', tokenResponse.athlete.id)
+      .single();
+    const { data: configRow } = await db
+      .from('challenge_config')
+      .select('*')
+      .eq('id', 1)
+      .single();
+    if (userRow && configRow) {
+      await syncUser(db, userRow as any, configRow as ChallengeConfig, todayAEST());
+    }
+  } catch (syncErr) {
+    console.error('Post-connect sync failed', syncErr);
   }
 
   return NextResponse.redirect(

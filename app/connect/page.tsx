@@ -2,11 +2,22 @@
 
 import { useEffect, useState } from 'react';
 
+const COLOR_PRESETS = [
+  '#F5F2EA',
+  '#FF7B72',
+  '#7EE787',
+  '#79C0FF',
+  '#D2A8FF',
+  '#F2CC60',
+  '#FF9BCE',
+  '#56D4DD',
+] as const;
+
 export default function ConnectPage() {
   const [name, setName] = useState('');
+  const [color, setColor] = useState<string>(COLOR_PRESETS[0]);
   const [clientId, setClientId] = useState('');
   const [clientSecret, setClientSecret] = useState('');
-  const [showSetup, setShowSetup] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [statusName, setStatusName] = useState<string | null>(null);
   const [connectAssetMissing, setConnectAssetMissing] = useState(false);
@@ -28,6 +39,7 @@ export default function ConnectPage() {
           client_id: clientId.trim() || undefined,
           client_secret: clientSecret.trim() || undefined,
           name: name.trim() || undefined,
+          color: color || undefined,
         }),
       });
       const data = await res.json();
@@ -52,7 +64,7 @@ export default function ConnectPage() {
           You&apos;re in.
         </h1>
         <p className="text-bone/80 mb-2">
-          Welcome, <span className="text-flame font-medium">{statusName}</span>.
+          Welcome, <span className="font-medium" style={{ color }}>{statusName}</span>.
         </p>
         <p className="text-sm text-muted mb-8">
           Your workouts will appear automatically.
@@ -130,39 +142,6 @@ export default function ConnectPage() {
         Miss one? -$10. The pool buys dinner on the final week.
       </p>
 
-      <button
-        type="button"
-        onClick={() => setShowSetup((v) => !v)}
-        className="w-full text-left text-[11px] uppercase tracking-widest text-muted mb-3 hover:text-bone"
-      >
-        {showSetup ? '▼' : '▶'} How to create your own Strava app (optional)
-      </button>
-
-      {showSetup && (
-        <ol className="list-decimal list-inside text-sm text-muted space-y-2 mb-6 pl-1">
-          <li>
-            Open{' '}
-            <a
-              href="https://www.strava.com/settings/api"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-flame underline"
-            >
-              strava.com/settings/api
-            </a>
-          </li>
-          <li>
-            Fill in: App Name = &ldquo;CYAM [your name]&rdquo;, Category = &ldquo;Training&rdquo;,
-            Club = leave blank, Website = {typeof window !== 'undefined' ? window.location.origin : ''},
-            Description = &ldquo;gym challenge tracker&rdquo;, Callback Domain ={' '}
-            {typeof window !== 'undefined' ? window.location.hostname : ''}
-          </li>
-          <li>Click Create</li>
-          <li>Copy Client ID and Client Secret (click &ldquo;Show&rdquo; to reveal the secret)</li>
-          <li>Paste them below</li>
-        </ol>
-      )}
-
       <div className="space-y-3">
         <label className="block">
           <span className="block text-[11px] uppercase tracking-widest text-muted mb-1.5">
@@ -179,6 +158,34 @@ export default function ConnectPage() {
 
         <label className="block">
           <span className="block text-[11px] uppercase tracking-widest text-muted mb-1.5">
+            Name color
+          </span>
+          <div className="flex items-center gap-2 flex-wrap">
+            {COLOR_PRESETS.map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => setColor(preset)}
+                className="w-7 h-7 rounded-full border"
+                style={{
+                  backgroundColor: preset,
+                  borderColor: color === preset ? '#FC4C02' : '#3B3B3B',
+                }}
+                aria-label={`Use color ${preset}`}
+              />
+            ))}
+            <input
+              type="color"
+              value={color}
+              onChange={(e) => setColor(e.target.value)}
+              className="w-10 h-8 bg-transparent border border-line rounded"
+              aria-label="Custom color"
+            />
+          </div>
+        </label>
+
+        <label className="block">
+          <span className="block text-[11px] uppercase tracking-widest text-muted mb-1.5">
             Strava Client ID
           </span>
           <input
@@ -187,7 +194,7 @@ export default function ConnectPage() {
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
             placeholder="e.g. 123456"
-            className="w-full px-4 py-3 rounded-lg bg-elevated border border-line focus:border-flame focus:outline-none text-bone font-mono"
+            className="w-full px-4 py-3 rounded-lg bg-elevated border border-line focus:border-flame focus:outline-none text-bone"
           />
         </label>
 
@@ -200,12 +207,21 @@ export default function ConnectPage() {
             value={clientSecret}
             onChange={(e) => setClientSecret(e.target.value)}
             placeholder="Paste your Client Secret"
-            className="w-full px-4 py-3 rounded-lg bg-elevated border border-line focus:border-flame focus:outline-none text-bone font-mono"
+            className="w-full px-4 py-3 rounded-lg bg-elevated border border-line focus:border-flame focus:outline-none text-bone"
           />
         </label>
 
-        <p className="text-[11px] text-muted leading-relaxed">
-          Leave these blank if the organizer told you to skip this step.
+        <p className="text-sm text-muted leading-relaxed">
+          Create your app at{' '}
+          <a
+            href="https://www.strava.com/settings/api"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-bone"
+          >
+            strava.com/settings/api
+          </a>
+          . Use Callback Domain: {typeof window !== 'undefined' ? window.location.hostname : ''}.
         </p>
 
         <button

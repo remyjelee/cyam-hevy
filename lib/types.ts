@@ -15,6 +15,7 @@ export interface ChallengeConfig {
 export interface User {
   id: string;
   display_name: string;
+  display_color: string | null;
   strava_athlete_id: number;
   strava_client_id: string | null;
   strava_client_secret: string | null;
@@ -53,6 +54,7 @@ export interface Workout {
 export interface DashboardUser {
   id: string;
   display_name: string;
+  display_color: string | null;
   profile_image_url: string | null;
   hearts_remaining: number;
   // current week's day-by-day completion: array of 7 booleans, Sun..Sat

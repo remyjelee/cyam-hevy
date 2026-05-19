@@ -19,6 +19,7 @@ export async function POST(req: NextRequest) {
   const clientId = ((body.client_id as string) || '').trim();
   const clientSecret = ((body.client_secret as string) || '').trim();
   const name = (body.name as string) || '';
+  const color = ((body.color as string) || '').trim();
 
   // Strict mode: require per-user app credentials to avoid silently falling
   // back to the global app that may be athlete-capped.
@@ -44,6 +45,7 @@ export async function POST(req: NextRequest) {
     strava_client_id: clientId,
     strava_client_secret: clientSecret,
     display_name: name,
+    display_color: color,
   });
 
   if (insertError) {
