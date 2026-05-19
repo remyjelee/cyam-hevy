@@ -59,12 +59,12 @@
     inset: -0.45rem -0.7rem;
     border-radius: 9999px;
     background:
-      radial-gradient(circle at 30% 20%, rgba(255, 122, 99, 0.55), transparent 60%),
-      radial-gradient(circle at 70% 80%, rgba(255, 77, 46, 0.45), transparent 65%);
+      radial-gradient(circle at 30% 20%, rgba(255, 210, 120, 0.34), transparent 60%),
+      radial-gradient(circle at 70% 80%, rgba(212, 146, 53, 0.26), transparent 65%);
     filter: blur(12px);
-    opacity: 0.72;
+    opacity: 0.68;
     z-index: -1;
-    animation: daysAuraWave 4.8s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+    animation: daysAuraWave 8s ease-in-out infinite;
   }
 
   .days-count-wrap::after {
@@ -72,21 +72,43 @@
     position: absolute;
     inset: -0.35rem -0.55rem;
     border-radius: 9999px;
-    background: radial-gradient(circle at 50% 50%, rgba(255, 230, 220, 0.22), transparent 70%);
+    background: radial-gradient(circle at 50% 50%, rgba(255, 233, 176, 0.2), transparent 70%);
     filter: blur(6px);
     z-index: -1;
-    animation: daysAuraDrift 6.5s ease-in-out infinite;
+    animation: daysAuraDrift 10s ease-in-out infinite;
   }
 
   .days-count-text {
-    background-image: linear-gradient(180deg, #FFE5DD 0%, #FF9A81 42%, #FF4D2E 100%);
+    position: relative;
+    display: inline-block;
+    background-image: linear-gradient(180deg, #FFF4CC 0%, #E9C978 48%, #B88328 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
     text-shadow:
-      0 0 10px rgba(255, 77, 46, 0.38),
-      0 0 26px rgba(255, 122, 99, 0.28);
-    animation: daysGlowWave 4.8s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+      0 1px 0 rgba(66, 44, 12, 0.9),
+      0 2px 0 rgba(50, 33, 10, 0.75),
+      0 6px 12px rgba(0, 0, 0, 0.45),
+      0 0 18px rgba(214, 170, 85, 0.35);
+    animation: daysGlowWave 7s ease-in-out infinite;
+  }
+
+  .days-count-text::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      115deg,
+      transparent 0%,
+      transparent 35%,
+      rgba(255, 246, 210, 0.55) 50%,
+      transparent 65%,
+      transparent 100%
+    );
+    mix-blend-mode: screen;
+    transform: translateX(-135%);
+    animation: daysTextShimmer 4.8s ease-in-out infinite;
+    pointer-events: none;
   }
 
   /* NES.css-inspired pixel hearts (light-touch integration just for hearts). */
@@ -122,19 +144,19 @@
 @keyframes daysGlowWave {
   0% {
     transform: translateY(0) scale(1);
-    filter: drop-shadow(0 0 3px rgba(255, 77, 46, 0.2));
+    filter: drop-shadow(0 0 2px rgba(198, 151, 62, 0.2));
   }
   30% {
-    transform: translateY(-0.4px) scale(1.012);
-    filter: drop-shadow(0 0 10px rgba(255, 122, 99, 0.42));
+    transform: translateY(-0.25px) scale(1.006);
+    filter: drop-shadow(0 0 7px rgba(218, 181, 110, 0.35));
   }
   65% {
-    transform: translateY(0.2px) scale(1.022);
-    filter: drop-shadow(0 0 14px rgba(255, 122, 99, 0.58));
+    transform: translateY(0.12px) scale(1.01);
+    filter: drop-shadow(0 0 10px rgba(226, 189, 115, 0.44));
   }
   100% {
     transform: translateY(0) scale(1);
-    filter: drop-shadow(0 0 4px rgba(255, 77, 46, 0.24));
+    filter: drop-shadow(0 0 3px rgba(188, 141, 52, 0.24));
   }
 }
 
@@ -165,5 +187,23 @@
   50% {
     opacity: 0.55;
     transform: translateX(1px) scale(1.04);
+  }
+}
+
+@keyframes daysTextShimmer {
+  0% {
+    transform: translateX(-135%);
+    opacity: 0;
+  }
+  22% {
+    opacity: 0.75;
+  }
+  46% {
+    transform: translateX(125%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(125%);
+    opacity: 0;
   }
 }

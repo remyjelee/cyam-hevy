@@ -400,7 +400,7 @@ function DayCell({
   isToday: boolean;
   isPast: boolean;
 }) {
-  let classes = 'aspect-square rounded-md flex items-center justify-center text-[10px] font-mono uppercase border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_0_8px_rgba(252,76,2,0.35)] ';
+  let classes = 'aspect-square rounded-md flex items-center justify-center text-[10px] font-mono uppercase border transition-all duration-200 ';
   if (done) {
     classes +=
       'bg-live/20 border-live/60 text-live';
