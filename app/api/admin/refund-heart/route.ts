@@ -26,18 +26,49 @@ export async function POST(req: NextRequest) {
 
   const db = getServerSupabase();
 
-  await db
+  // Check if a heart is actually used this week.
+  const { data: existing, error: existErr } = await db
     .from('weekly_results')
-    .update({ heart_used: false })
+    .select('id, heart_used')
     .eq('user_id', userId)
-    .eq('week_start', weekStart);
+    .eq('week_start', weekStart)
+    .maybeSingle();
 
-  await db.from('heart_log').insert({
+  if (existErr) {
+    console.error('weekly_results check failed', existErr);
+    return NextResponse.json({ error: 'db read failed' }, { status: 500 });
+  }
+
+  if (!existing || !existing.heart_used) {
+    return NextResponse.json(
+      { error: 'no heart to refund this week' },
+      { status: 400 },
+    );
+  }
+
+  // Update by id for precision.
+  const { error: updateErr } = await db
+    .from('weekly_results')
+    .update({ heart_used: false, computed_at: new Date().toISOString() })
+    .eq('id', existing.id);
+
+  if (updateErr) {
+    console.error('weekly_results update failed', updateErr);
+    return NextResponse.json({ error: 'db update failed' }, { status: 500 });
+  }
+
+  // Log the refund.
+  const { error: logErr } = await db.from('heart_log').insert({
     user_id: userId,
     week_start: weekStart,
     action: 'refund',
   });
 
+  if (logErr) {
+    console.error('heart_log insert failed', logErr);
+  }
+
+  // Recompute so points_owed and streak reflect the change.
   const { data: configRow } = await db
     .from('challenge_config')
     .select('*')
