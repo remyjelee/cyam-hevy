@@ -32,7 +32,11 @@ export default function AdminPage() {
   }
 
   async function loadData() {
-    const res = await fetch('/api/data/dashboard', { cache: 'no-store' });
+    // Dashboard endpoint is edge-cached for public traffic; bust cache in admin
+    // so heart/use-refund state reflects writes immediately.
+    const res = await fetch(`/api/data/dashboard?admin_ts=${Date.now()}`, {
+      cache: 'no-store',
+    });
     if (res.ok) setData(await res.json());
   }
 
