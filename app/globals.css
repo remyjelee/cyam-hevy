@@ -59,56 +59,37 @@
     inset: -0.45rem -0.7rem;
     border-radius: 9999px;
     background:
-      radial-gradient(circle at 30% 20%, rgba(255, 210, 120, 0.34), transparent 60%),
-      radial-gradient(circle at 70% 80%, rgba(212, 146, 53, 0.26), transparent 65%);
-    filter: blur(12px);
-    opacity: 0.68;
+      radial-gradient(circle at 42% 45%, rgba(255, 214, 120, 0.22), transparent 64%);
+    filter: blur(10px);
+    opacity: 0.5;
     z-index: -1;
-    animation: daysAuraWave 8s ease-in-out infinite;
-  }
-
-  .days-count-wrap::after {
-    content: '';
-    position: absolute;
-    inset: -0.35rem -0.55rem;
-    border-radius: 9999px;
-    background: radial-gradient(circle at 50% 50%, rgba(255, 233, 176, 0.2), transparent 70%);
-    filter: blur(6px);
-    z-index: -1;
-    animation: daysAuraDrift 10s ease-in-out infinite;
+    animation: daysAuraWave 10s ease-in-out infinite;
   }
 
   .days-count-text {
     position: relative;
     display: inline-block;
-    background-image: linear-gradient(180deg, #FFF4CC 0%, #E9C978 48%, #B88328 100%);
+    background-image: linear-gradient(
+      110deg,
+      #fff6d7 0%,
+      #ffe9a6 22%,
+      #fff9e8 33%,
+      #f4cf79 46%,
+      #cf9635 72%,
+      #9b681f 100%
+    );
+    background-size: 220% 100%;
+    background-position: 0% 50%;
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
     text-shadow:
-      0 1px 0 rgba(66, 44, 12, 0.9),
-      0 2px 0 rgba(50, 33, 10, 0.75),
-      0 6px 12px rgba(0, 0, 0, 0.45),
-      0 0 18px rgba(214, 170, 85, 0.35);
-    animation: daysGlowWave 7s ease-in-out infinite;
-  }
-
-  .days-count-text::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      115deg,
-      transparent 0%,
-      transparent 35%,
-      rgba(255, 246, 210, 0.55) 50%,
-      transparent 65%,
-      transparent 100%
-    );
-    mix-blend-mode: screen;
-    transform: translateX(-135%);
-    animation: daysTextShimmer 4.8s ease-in-out infinite;
-    pointer-events: none;
+      0 1px 0 rgba(74, 49, 16, 0.7),
+      0 3px 8px rgba(0, 0, 0, 0.32),
+      0 0 10px rgba(220, 175, 85, 0.22);
+    animation:
+      daysTextSheen 6.6s ease-in-out infinite,
+      daysGlowWave 8.2s ease-in-out infinite;
   }
 
   /* NES.css-inspired pixel hearts (light-touch integration just for hearts). */
@@ -143,20 +124,16 @@
 
 @keyframes daysGlowWave {
   0% {
-    transform: translateY(0) scale(1);
-    filter: drop-shadow(0 0 2px rgba(198, 151, 62, 0.2));
+    filter: drop-shadow(0 0 1px rgba(198, 151, 62, 0.16));
   }
   30% {
-    transform: translateY(-0.25px) scale(1.006);
-    filter: drop-shadow(0 0 7px rgba(218, 181, 110, 0.35));
+    filter: drop-shadow(0 0 4px rgba(218, 181, 110, 0.24));
   }
   65% {
-    transform: translateY(0.12px) scale(1.01);
-    filter: drop-shadow(0 0 10px rgba(226, 189, 115, 0.44));
+    filter: drop-shadow(0 0 6px rgba(226, 189, 115, 0.28));
   }
   100% {
-    transform: translateY(0) scale(1);
-    filter: drop-shadow(0 0 3px rgba(188, 141, 52, 0.24));
+    filter: drop-shadow(0 0 2px rgba(188, 141, 52, 0.18));
   }
 }
 
@@ -190,20 +167,17 @@
   }
 }
 
-@keyframes daysTextShimmer {
+@keyframes daysTextSheen {
   0% {
-    transform: translateX(-135%);
-    opacity: 0;
+    background-position: 0% 50%;
   }
-  22% {
-    opacity: 0.75;
+  45% {
+    background-position: 52% 50%;
   }
-  46% {
-    transform: translateX(125%);
-    opacity: 0;
+  55% {
+    background-position: 70% 50%;
   }
   100% {
-    transform: translateX(125%);
-    opacity: 0;
+    background-position: 100% 50%;
   }
 }
