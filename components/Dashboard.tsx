@@ -128,11 +128,14 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
           <div className="mt-6">
             <div className="flex items-baseline justify-between mb-2">
               <div>
-                <span className="days-count-wrap">
-                  <span className="days-count-text font-pixel text-3xl sm:text-4xl leading-none">
+                <div className="days-float">
+                  <div className="days-outline" aria-hidden="true">
                     {progress.remaining}
-                  </span>
-                </span>
+                  </div>
+                  <div className="days-fill">
+                    {progress.remaining}
+                  </div>
+                </div>
                 <span className="ml-2 text-xs uppercase tracking-widest text-muted">
                   days left
                 </span>
@@ -218,6 +221,70 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
           </div>
         </footer>
       </div>
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+        .days-float {
+          position: relative;
+          display: inline-block;
+          animation: floatBob 3s ease-in-out infinite;
+        }
+
+        @keyframes floatBob {
+          0%,
+          100% {
+            transform: translateY(0);
+          }
+          50% {
+            transform: translateY(-8px);
+          }
+        }
+
+        .days-outline {
+          font-family: 'Press Start 2P', monospace;
+          font-size: clamp(36px, 10vw, 52px);
+          line-height: 1;
+          background: linear-gradient(
+            135deg,
+            #ff4d2e 0%,
+            #ffc93c 20%,
+            #00d26a 40%,
+            #4d9eff 60%,
+            #b44dff 80%,
+            #ff4d2e 100%
+          );
+          background-size: 300% 300%;
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
+          -webkit-text-stroke: 3px transparent;
+          animation: prismatic 4s ease infinite;
+          filter: drop-shadow(0 0 12px rgba(255, 201, 60, 0.2))
+            drop-shadow(0 0 24px rgba(77, 158, 255, 0.12));
+        }
+
+        .days-fill {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          font-family: 'Press Start 2P', monospace;
+          font-size: clamp(36px, 10vw, 52px);
+          line-height: 1;
+          color: #ffffff;
+          pointer-events: none;
+        }
+
+        @keyframes prismatic {
+          0%,
+          100% {
+            background-position: 0% 50%;
+          }
+          50% {
+            background-position: 100% 50%;
+          }
+        }
+      `}</style>
     </main>
   );
 }
