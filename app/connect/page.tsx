@@ -135,11 +135,11 @@ export default function ConnectPage() {
         CYAM Hevy Challenge
       </div>
       <h1 className="font-display text-5xl uppercase leading-none mb-4">
-        Join the <span className="text-flame">grind</span>
+        Join the <span className="text-flame">Challenge</span>
       </h1>
       <p className="text-bone/80 mb-1">4 workouts a week. 30+ minutes each.</p>
       <p className="text-muted text-sm mb-8">
-        Miss one? -$10. The pool will fund a glorious camping trip with unlimited meat.
+        Miss one? -$10. The pool funds a camping trip.
       </p>
 
       <div className="space-y-3">
