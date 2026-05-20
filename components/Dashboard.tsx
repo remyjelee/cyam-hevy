@@ -154,13 +154,13 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
 
           {/* Pool + rules summary */}
           <div className="mt-6 flex flex-wrap gap-3 text-xs">
-            <Stat label="Pool" value={formatPenaltyUnits(data.total_pool)} accent />
+            <Stat label="Pool" value={`$${data.total_pool}`} accent />
             <Stat
               label="Required"
               value={`${data.required_days_per_week}× / week`}
             />
             <Stat label="Min" value="30 min" />
-            <Stat label="Miss" value={`${formatPenaltyUnits(data.deduction_per_miss)} / miss`} />
+            <Stat label="Penalty" value={`-$${data.deduction_per_miss}`} />
           </div>
         </header>
 
