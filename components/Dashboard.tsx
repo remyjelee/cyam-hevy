@@ -154,13 +154,13 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
 
           {/* Pool + rules summary */}
           <div className="mt-6 flex flex-wrap gap-3 text-xs">
-            <Stat label="Pool" value={`$${data.total_pool}`} accent />
+            <Stat label="Pool" value={formatPenaltyUnits(data.total_pool)} accent />
             <Stat
               label="Required"
               value={`${data.required_days_per_week}× / week`}
             />
             <Stat label="Min" value="30 min" />
-            <Stat label="Miss" value={`-$${data.deduction_per_miss}`} />
+            <Stat label="Miss" value={`${formatPenaltyUnits(data.deduction_per_miss)} / miss`} />
           </div>
         </header>
 
@@ -182,6 +182,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
                 todayDow={progress.todayDow}
                 required={data.required_days_per_week}
                 heartsPerUser={data.hearts_per_user}
+                deductionPerMiss={data.deduction_per_miss}
               />
             ))
           )}
@@ -242,7 +243,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
 
         .days-outline {
           font-family: 'Press Start 2P', monospace;
-          font-size: clamp(36px, 10vw, 52px);
+          font-size: clamp(25px, 7vw, 36px);
           line-height: 1;
           background: linear-gradient(
             135deg,
@@ -269,7 +270,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
           left: 0;
           right: 0;
           font-family: 'Press Start 2P', monospace;
-          font-size: clamp(36px, 10vw, 52px);
+          font-size: clamp(25px, 7vw, 36px);
           line-height: 1;
           color: #ffffff;
           pointer-events: none;
@@ -287,6 +288,11 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
       `}</style>
     </main>
   );
+}
+
+function formatPenaltyUnits(amount: number): string {
+  const units = amount / 10;
+  return Number.isInteger(units) ? `-${units}` : `-${units.toFixed(1)}`;
 }
 
 // =============================================================================
@@ -337,12 +343,14 @@ function UserRow({
   todayDow,
   required,
   heartsPerUser,
+  deductionPerMiss,
 }: {
   user: DashboardUser;
   index: number;
   todayDow: number;
   required: number;
   heartsPerUser: number;
+  deductionPerMiss: number;
 }) {
   const isOnTrack = user.current_week_days_count >= required || user.current_week_heart_used;
   const danger =
@@ -380,7 +388,7 @@ function UserRow({
             )}
             {user.total_owed > 0 && (
               <span className="font-mono text-flame">
-                –${user.total_owed}
+                {formatPenaltyUnits(user.total_owed)}
               </span>
             )}
           </div>

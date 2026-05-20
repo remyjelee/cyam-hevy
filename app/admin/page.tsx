@@ -138,6 +138,7 @@ export default function AdminPage() {
             user={u}
             busy={busy}
             heartsPerUser={data.hearts_per_user}
+            deductionPerMiss={data.deduction_per_miss}
             onUseHeart={() => adminFetch('/api/admin/use-heart', { user_id: u.id })}
             onRefundHeart={() => adminFetch('/api/admin/refund-heart', { user_id: u.id })}
             onRemove={() => {
@@ -189,6 +190,7 @@ function AdminUserRow({
   user,
   busy,
   heartsPerUser,
+  deductionPerMiss,
   onUseHeart,
   onRefundHeart,
   onRemove,
@@ -196,10 +198,12 @@ function AdminUserRow({
   user: DashboardUser;
   busy: string | null;
   heartsPerUser: number;
+  deductionPerMiss: number;
   onUseHeart: () => void;
   onRefundHeart: () => void;
   onRemove: () => void;
 }) {
+  const owedUnits = user.total_owed / deductionPerMiss;
   return (
     <article className="p-4 rounded-xl border border-line bg-surface">
       <div className="flex items-center gap-3">
@@ -218,7 +222,9 @@ function AdminUserRow({
           <div className="text-xs text-muted">
             {user.current_week_days_count}/4 this week ·{' '}
             {user.hearts_remaining}/{heartsPerUser} hearts ·{' '}
-            <span className="text-flame">${user.total_owed} owed</span>
+            <span className="text-flame">
+              -{Number.isInteger(owedUnits) ? owedUnits : owedUnits.toFixed(1)} owed
+            </span>
             {user.current_week_heart_used && (
               <span className="ml-2 text-heart">heart used this wk</span>
             )}
