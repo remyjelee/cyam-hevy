@@ -137,7 +137,7 @@ export default function ConnectPage() {
       <h1 className="font-display text-5xl uppercase leading-none mb-4">
         Join the <span className="text-flame">Challenge</span>
       </h1>
-      <p className="text-bone/80 mb-1">4 workouts a week. 30+ minutes each.</p>
+      <p className="text-bone/80 mb-1">3 workouts a week. 30+ minutes each.</p>
       <p className="text-muted text-sm mb-8">
         Miss one? -$10. The pool funds a camping trip.
       </p>
