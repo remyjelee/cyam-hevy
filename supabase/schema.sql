@@ -15,8 +15,8 @@ create table if not exists challenge_config (
   deduction_per_miss int not null default 10,
   hearts_per_user int not null default 2,
   -- Comma-separated Strava activity types we count.
-  -- Hevy posts as "WeightTraining"; we also include "Run".
-  counted_activity_types text not null default 'WeightTraining,Run',
+  -- Hevy often posts as "WeightTraining"; we also include "Run" and "Workout".
+  counted_activity_types text not null default 'WeightTraining,Run,Workout',
   constraint singleton check (id = 1)
 );
 
