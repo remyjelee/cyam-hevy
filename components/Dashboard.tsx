@@ -646,7 +646,7 @@ function UserDetailModal({
 
         <div className="mt-5">
           <div className="text-[11px] uppercase tracking-[0.16em] text-muted mb-2">
-            Consistency Heatmap
+            Weekday Heatmap
           </div>
           <ConsistencyHeatmap
             weekdayIntensity={user.consistency_weekday_intensity}
@@ -829,7 +829,9 @@ function GroupCumulativeChart({
               className="w-2.5 h-2.5 rounded-full"
               style={{ backgroundColor: withReadableAlpha(u.display_color ?? '#F5F2EA', 0.9) }}
             />
-            <span>{u.display_name}</span>
+            <span className="font-pixel normal-case tracking-normal leading-none text-[8px] sm:text-[9px] text-bone/90">
+              {u.display_name}
+            </span>
           </div>
         ))}
       </div>
