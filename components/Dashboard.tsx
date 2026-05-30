@@ -131,16 +131,6 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedWeekStart]);
 
-  const rangeStart = new Date(`${data.week_start}T00:00:00Z`);
-  const rangeEnd = new Date(`${addDays(data.week_start, 6)}T00:00:00Z`);
-  const weekRangeLabel = `${rangeStart.toLocaleDateString('en-AU', {
-    day: 'numeric',
-    month: 'short',
-  })} - ${rangeEnd.toLocaleDateString('en-AU', {
-    day: 'numeric',
-    month: 'short',
-  })}`;
-
   return (
     <main className="relative min-h-screen overflow-x-hidden">
       <div className="grain absolute inset-0 pointer-events-none" />
@@ -157,26 +147,6 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
             <span className="block">CYAM</span>
             <span className="block text-flame">Hevy Challenge</span>
           </h1>
-
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => setSelectedWeekStart(addDays(data.week_start, -7))}
-              disabled={!data.can_go_prev_week || weekLoading}
-              className="px-3 py-1.5 rounded-md bg-elevated border border-line text-[11px] uppercase tracking-wider text-bone disabled:opacity-40"
-            >
-              ← Previous
-            </button>
-            <button
-              onClick={() => setSelectedWeekStart(data.current_week_start)}
-              disabled={data.is_current_week || weekLoading}
-              className="px-3 py-1.5 rounded-md bg-elevated border border-line text-[11px] uppercase tracking-wider text-bone disabled:opacity-40"
-            >
-              Current week
-            </button>
-            <span className="text-[11px] uppercase tracking-widest text-muted">
-              Week {data.week_number} · {weekRangeLabel}
-            </span>
-          </div>
 
           {/* Days remaining + progress bar */}
           <div className="mt-6">
@@ -217,6 +187,24 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
             <Stat label="Penalty" value={`-$${data.deduction_per_miss}`} />
           </div>
         </header>
+
+        <section className="relative mb-5 min-h-[32px]">
+          <button
+            onClick={() => setSelectedWeekStart(addDays(data.week_start, -7))}
+            disabled={!data.can_go_prev_week || weekLoading}
+            className="inline-flex items-center px-3 py-1.5 rounded-md bg-elevated/65 border border-line text-[11px] uppercase tracking-wider text-bone/90 hover:border-flame/50 hover:text-bone transition-colors disabled:opacity-0 disabled:pointer-events-none"
+          >
+            ← Previous week
+          </button>
+
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
+            <span className="text-[11px] uppercase tracking-[0.18em] text-muted">
+              {data.is_current_week
+                ? `Week ${data.week_number} (Current)`
+                : `Week ${data.week_number}`}
+            </span>
+          </div>
+        </section>
 
         {/* USER LIST -------------------------------------------------------- */}
         <section className="space-y-3">
