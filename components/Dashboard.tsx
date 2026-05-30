@@ -80,10 +80,12 @@ function usePresence(): number {
 export default function Dashboard({ initialData }: { initialData: DashboardData }) {
   const [data, setData] = useState(initialData);
   const [selectedWeekStart, setSelectedWeekStart] = useState(initialData.week_start);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [weekLoading, setWeekLoading] = useState(false);
   const [poweredAssetMissing, setPoweredAssetMissing] = useState(false);
   const progress = useChallengeProgress(data.start_date, data.end_date);
   const viewers = usePresence();
+  const selectedUser = data.users.find((u) => u.id === selectedUserId) ?? null;
 
   async function refreshData(weekStart = selectedWeekStart, showLoading = false) {
     if (showLoading) setWeekLoading(true);
@@ -197,6 +199,14 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
             ← Previous week
           </button>
 
+          <button
+            onClick={() => setSelectedWeekStart(addDays(data.week_start, 7))}
+            disabled={!data.can_go_next_week || weekLoading}
+            className="absolute right-0 inline-flex items-center px-3 py-1.5 rounded-md bg-elevated/65 border border-line text-[11px] uppercase tracking-wider text-bone/90 hover:border-flame/50 hover:text-bone transition-colors disabled:opacity-0 disabled:pointer-events-none"
+          >
+            Next week →
+          </button>
+
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
             <span className="text-[11px] uppercase tracking-[0.18em] text-muted">
               {data.is_current_week
@@ -224,10 +234,17 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
                 todayDow={data.is_current_week ? progress.todayDow : null}
                 required={data.required_days_per_week}
                 heartsPerUser={data.hearts_per_user}
-                deductionPerMiss={data.deduction_per_miss}
+                onOpen={() => setSelectedUserId(u.id)}
               />
             ))
           )}
+        </section>
+
+        <section className="mt-10">
+          <h2 className="text-[11px] uppercase tracking-[0.18em] text-muted mb-3">
+            Group Momentum
+          </h2>
+          <GroupCumulativeChart users={data.users} weeks={data.chart_weeks} />
         </section>
 
         {/* FOOTER ----------------------------------------------------------- */}
@@ -328,6 +345,14 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
           }
         }
       `}</style>
+
+      {selectedUser && (
+        <UserDetailModal
+          user={selectedUser}
+          deductionPerMiss={data.deduction_per_miss}
+          onClose={() => setSelectedUserId(null)}
+        />
+      )}
     </main>
   );
 }
@@ -385,14 +410,14 @@ function UserRow({
   todayDow,
   required,
   heartsPerUser,
-  deductionPerMiss,
+  onOpen,
 }: {
   user: DashboardUser;
   index: number;
   todayDow: number | null;
   required: number;
   heartsPerUser: number;
-  deductionPerMiss: number;
+  onOpen: () => void;
 }) {
   const isCurrentWeekView = todayDow !== null;
   const isOnTrack = user.current_week_days_count >= required || user.current_week_heart_used;
@@ -404,8 +429,9 @@ function UserRow({
 
   return (
     <article
-      className="relative p-4 rounded-xl border border-line bg-surface animate-pop-in"
+      className="relative p-4 rounded-xl border border-line bg-surface animate-pop-in cursor-pointer"
       style={{ animationDelay: `${index * 60}ms` }}
+      onClick={onOpen}
     >
       <div className="flex items-center gap-3">
         <Avatar src={user.profile_image_url} name={user.display_name} />
@@ -452,14 +478,26 @@ function UserRow({
         ))}
       </div>
 
-      {danger && !user.current_week_heart_used && (
-        <div className="mt-3 text-[10px] uppercase tracking-widest text-flame/80 font-medium">
-          Behind pace
-        </div>
-      )}
-      {isOnTrack && (
-        <div className="mt-3 text-[10px] uppercase tracking-widest text-live/90 font-medium">
-          {user.current_week_heart_used ? 'Safe — heart used' : 'On pace'}
+      {isCurrentWeekView ? (
+        <>
+          {danger && !user.current_week_heart_used && (
+            <div className="mt-3 text-[10px] uppercase tracking-widest text-flame/80 font-medium">
+              Behind pace
+            </div>
+          )}
+          {isOnTrack && (
+            <div className="mt-3 text-[10px] uppercase tracking-widest text-live/90 font-medium">
+              {user.current_week_heart_used ? 'Safe — heart used' : 'On pace'}
+            </div>
+          )}
+        </>
+      ) : (
+        <div
+          className={`mt-3 text-[10px] uppercase tracking-widest font-medium ${
+            isOnTrack ? 'text-live/90' : 'text-flame/85'
+          }`}
+        >
+          {isOnTrack ? 'Passed' : 'Failed'}
         </div>
       )}
     </article>
@@ -535,4 +573,277 @@ function DayCell({
       {done ? '✓' : label}
     </div>
   );
+}
+
+function UserDetailModal({
+  user,
+  deductionPerMiss,
+  onClose,
+}: {
+  user: DashboardUser;
+  deductionPerMiss: number;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    const old = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = old;
+    };
+  }, [onClose]);
+
+  const penaltyUnits =
+    deductionPerMiss > 0
+      ? Number.isInteger(user.total_owed / deductionPerMiss)
+        ? user.total_owed / deductionPerMiss
+        : Number((user.total_owed / deductionPerMiss).toFixed(1))
+      : 0;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-ink/70 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-2xl rounded-2xl border border-line bg-surface p-5 sm:p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <Avatar src={user.profile_image_url} name={user.display_name} />
+            <div>
+              <div
+                className="font-pixel text-sm sm:text-base"
+                style={{ color: user.display_color ?? '#F5F2EA' }}
+              >
+                {user.display_name}
+              </div>
+              <div className="text-[11px] uppercase tracking-[0.16em] text-muted mt-1">
+                Athlete profile
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="px-2 py-1 rounded-md border border-line bg-elevated text-muted hover:text-bone"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <ModalStat label="Penalty" value={`-${penaltyUnits}`} />
+          <ModalStat label="Days Worked" value={String(user.total_days_worked_out)} />
+          <ModalStat label="Hearts Left" value={String(user.hearts_remaining)} />
+          <ModalStat label="Streak" value={String(user.streak)} />
+        </div>
+
+        <div className="mt-5">
+          <div className="text-[11px] uppercase tracking-[0.16em] text-muted mb-2">
+            Consistency Heatmap
+          </div>
+          <ConsistencyHeatmap weeks={user.consistency_weeks} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ModalStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-line bg-elevated px-3 py-2">
+      <div className="text-[9px] uppercase tracking-[0.14em] text-muted">{label}</div>
+      <div className="font-mono text-sm text-bone mt-1">{value}</div>
+    </div>
+  );
+}
+
+function ConsistencyHeatmap({
+  weeks,
+}: {
+  weeks: Array<{ week_start: string; week_number: number; day_flags: boolean[] }>;
+}) {
+  const shown = weeks.slice(-10);
+  return (
+    <div className="overflow-x-auto">
+      <div className="min-w-[560px]">
+        <div className="grid grid-cols-[64px_repeat(7,minmax(0,1fr))] gap-1 mb-1">
+          <div />
+          {DAY_LABELS.map((d) => (
+            <div key={d} className="text-[10px] text-muted uppercase tracking-wider text-center">
+              {d}
+            </div>
+          ))}
+        </div>
+        <div className="space-y-1">
+          {shown.map((w) => (
+            <div
+              key={w.week_start}
+              className="grid grid-cols-[64px_repeat(7,minmax(0,1fr))] gap-1 items-center"
+            >
+              <div className="text-[10px] text-muted uppercase tracking-wider">
+                Wk {w.week_number}
+              </div>
+              {w.day_flags.map((done, i) => (
+                <div
+                  key={`${w.week_start}-${i}`}
+                  className={`h-6 rounded-sm border ${
+                    done
+                      ? 'bg-live/25 border-live/60'
+                      : 'bg-elevated/40 border-line'
+                  }`}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GroupCumulativeChart({
+  users,
+  weeks,
+}: {
+  users: DashboardUser[];
+  weeks: Array<{ week_start: string; week_number: number }>;
+}) {
+  const width = 920;
+  const height = 260;
+  const padding = { top: 16, right: 18, bottom: 28, left: 30 };
+  const innerW = width - padding.left - padding.right;
+  const innerH = height - padding.top - padding.bottom;
+  const maxY = Math.max(
+    1,
+    ...users.map((u) =>
+      u.chart_series.length > 0
+        ? u.chart_series[u.chart_series.length - 1].cumulative_days
+        : 0,
+    ),
+  );
+
+  const x = (index: number) =>
+    padding.left +
+    (weeks.length <= 1 ? innerW / 2 : (index / (weeks.length - 1)) * innerW);
+  const y = (value: number) =>
+    padding.top + innerH - (value / maxY) * innerH;
+
+  return (
+    <div className="rounded-xl border border-line bg-surface p-3">
+      <div className="overflow-x-auto">
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full min-w-[760px] h-[220px]">
+          {[0, 0.25, 0.5, 0.75, 1].map((t) => {
+            const v = Math.round(maxY * t);
+            const yy = y(v);
+            return (
+              <g key={t}>
+                <line
+                  x1={padding.left}
+                  y1={yy}
+                  x2={width - padding.right}
+                  y2={yy}
+                  stroke="rgba(122,122,122,0.22)"
+                  strokeDasharray="3 4"
+                />
+                <text
+                  x={4}
+                  y={yy + 4}
+                  fill="#7A7A7A"
+                  fontSize="10"
+                  fontFamily="JetBrains Mono, monospace"
+                >
+                  {v}
+                </text>
+              </g>
+            );
+          })}
+
+          {users.map((u) => {
+            const points = weeks.map((w, idx) => {
+              const p = u.chart_series.find((s) => s.week_start === w.week_start);
+              return `${x(idx)},${y(p?.cumulative_days ?? 0)}`;
+            });
+            return (
+              <polyline
+                key={u.id}
+                fill="none"
+                stroke={withReadableAlpha(u.display_color ?? '#F5F2EA', 0.85)}
+                strokeWidth="2.4"
+                points={points.join(' ')}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            );
+          })}
+
+          {weeks.length > 0 && (
+            <>
+              <text
+                x={padding.left}
+                y={height - 8}
+                fill="#7A7A7A"
+                fontSize="10"
+                fontFamily="JetBrains Mono, monospace"
+              >
+                Wk {weeks[0].week_number}
+              </text>
+              <text
+                x={width - padding.right - 32}
+                y={height - 8}
+                fill="#7A7A7A"
+                fontSize="10"
+                fontFamily="JetBrains Mono, monospace"
+              >
+                Wk {weeks[weeks.length - 1].week_number}
+              </text>
+            </>
+          )}
+        </svg>
+      </div>
+
+      <div className="mt-2 flex flex-wrap gap-2">
+        {users.map((u) => (
+          <div
+            key={u.id}
+            className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted"
+          >
+            <span
+              className="w-2.5 h-2.5 rounded-full"
+              style={{ backgroundColor: withReadableAlpha(u.display_color ?? '#F5F2EA', 0.9) }}
+            />
+            <span>{u.display_name}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function withReadableAlpha(color: string, alpha: number): string {
+  if (!color.startsWith('#')) return color;
+  const hex = color.replace('#', '');
+  const full =
+    hex.length === 3
+      ? hex
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : hex;
+  if (full.length !== 6) return color;
+  const r = Number.parseInt(full.slice(0, 2), 16);
+  const g = Number.parseInt(full.slice(2, 4), 16);
+  const b = Number.parseInt(full.slice(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  const boost = luminance < 0.28 ? 1.25 : 1;
+  const rr = Math.min(255, Math.round(r * boost));
+  const gg = Math.min(255, Math.round(g * boost));
+  const bb = Math.min(255, Math.round(b * boost));
+  return `rgba(${rr}, ${gg}, ${bb}, ${alpha})`;
 }

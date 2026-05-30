@@ -66,6 +66,18 @@ export interface DashboardUser {
   streak: number;
   // total dollars owed across all finalized weeks
   total_owed: number;
+  total_days_worked_out: number;
+  penalty_count: number;
+  consistency_weeks: Array<{
+    week_start: string;
+    week_number: number;
+    day_flags: boolean[];
+  }>;
+  chart_series: Array<{
+    week_start: string;
+    week_number: number;
+    cumulative_days: number;
+  }>;
 }
 
 export interface DashboardData {
@@ -85,5 +97,9 @@ export interface DashboardData {
   last_synced_at: string | null;
   // total $ pool across all users
   total_pool: number;
+  chart_weeks: Array<{
+    week_start: string;
+    week_number: number;
+  }>;
   users: DashboardUser[];
 }

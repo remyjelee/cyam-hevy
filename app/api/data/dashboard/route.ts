@@ -57,6 +57,14 @@ export async function GET(req: NextRequest) {
   const hasStarted = today >= config.start_date;
   const weekDateList = weekDates(weekStart);
   const weekEndExclusive = addDays(weekStart, 7);
+  const allWeekStarts: string[] = [];
+  for (
+    let w = challengeStartWeek;
+    w <= currentWeek;
+    w = addDays(w, 7)
+  ) {
+    allWeekStarts.push(w);
+  }
 
   // 1) All active users.
   const { data: users } = await db
@@ -81,6 +89,7 @@ export async function GET(req: NextRequest) {
       deduction_per_miss: config.deduction_per_miss,
       last_synced_at: null,
       total_pool: 0,
+      chart_weeks: [],
       users: [],
     });
   }
@@ -96,7 +105,7 @@ export async function GET(req: NextRequest) {
     (heartsRows ?? []).map((r: any) => [r.user_id, r.hearts_remaining]),
   );
 
-  // 3) Current week's workouts (one row per workout).
+  // 3) Selected week's workouts (one row per workout).
   const { data: weekWorkouts } = await db
     .from('workouts')
     .select('user_id, workout_date')
@@ -110,6 +119,26 @@ export async function GET(req: NextRequest) {
     const set = daysByUser.get((w as any).user_id) ?? new Set<string>();
     set.add((w as any).workout_date);
     daysByUser.set((w as any).user_id, set);
+  }
+
+  // 3b) All challenge workouts for heatmap + cumulative chart.
+  const { data: challengeWorkouts } = await db
+    .from('workouts')
+    .select('user_id, workout_date')
+    .in('user_id', userIds)
+    .gte('workout_date', challengeStartWeek)
+    .lt('workout_date', addDays(currentWeek, 7));
+
+  const challengeWeekDaysByUser = new Map<string, Map<string, Set<string>>>();
+  for (const w of challengeWorkouts ?? []) {
+    const userId = (w as any).user_id as string;
+    const workoutDate = (w as any).workout_date as string;
+    const ws = weekStartSunday(parseDate(workoutDate));
+    const byWeek = challengeWeekDaysByUser.get(userId) ?? new Map<string, Set<string>>();
+    const set = byWeek.get(ws) ?? new Set<string>();
+    set.add(workoutDate);
+    byWeek.set(ws, set);
+    challengeWeekDaysByUser.set(userId, byWeek);
   }
 
   // 4) Heart-used flags for current week.
@@ -139,7 +168,7 @@ export async function GET(req: NextRequest) {
   // 5) All finalized weekly_results for streaks and total owed.
   const { data: allResults } = await db
     .from('weekly_results')
-    .select('user_id, week_start, days_worked_out, heart_used, finalized, points_owed')
+    .select('user_id, week_start, days_worked_out, week_day_flags, heart_used, finalized, points_owed')
     .in('user_id', userIds)
     .order('week_start', { ascending: false });
 
@@ -172,6 +201,9 @@ export async function GET(req: NextRequest) {
     const userResults = (resultsByUser.get(u.id) ?? []).filter(
       (r) => r.week_start >= config.start_date,
     );
+    const userResultsByWeek = new Map<string, any>(
+      userResults.map((r) => [r.week_start, r]),
+    );
     // Streak: walk back from most recent FINALIZED week. Stop on a "miss"
     // (didn't hit required AND no heart). Current in-progress week is included
     // only if hearts used or already at required count.
@@ -196,6 +228,41 @@ export async function GET(req: NextRequest) {
       .filter((r) => r.finalized)
       .reduce((sum, r) => sum + (r.points_owed || 0), 0);
 
+    const consistencyWeeks = allWeekStarts.map((ws, idx) => {
+      const weekRow = userResultsByWeek.get(ws);
+      const fallbackSet = challengeWeekDaysByUser.get(u.id)?.get(ws) ?? new Set<string>();
+      const fallbackFlags = weekDates(ws).map((d) => fallbackSet.has(d));
+      const rowFlags =
+        Array.isArray(weekRow?.week_day_flags) && weekRow.week_day_flags.length === 7
+          ? weekRow.week_day_flags.map(Boolean)
+          : fallbackFlags;
+      const dayFlags =
+        weekRow?.finalized && rowFlags.filter(Boolean).length === (weekRow?.days_worked_out ?? rowFlags.filter(Boolean).length)
+          ? rowFlags
+          : fallbackFlags;
+      return {
+        week_start: ws,
+        week_number: idx + 1,
+        day_flags: dayFlags,
+      };
+    });
+
+    let cumulative = 0;
+    const chartSeries = consistencyWeeks.map((w) => {
+      const daysWorked = w.day_flags.filter(Boolean).length;
+      cumulative += daysWorked;
+      return {
+        week_start: w.week_start,
+        week_number: w.week_number,
+        cumulative_days: cumulative,
+      };
+    });
+    const totalDaysWorkedOut = consistencyWeeks.reduce(
+      (sum, w) => sum + w.day_flags.filter(Boolean).length,
+      0,
+    );
+    const penaltyCount = config.deduction_per_miss > 0 ? totalOwed / config.deduction_per_miss : 0;
+
     return {
       id: u.id,
       display_name: u.display_name,
@@ -211,6 +278,10 @@ export async function GET(req: NextRequest) {
         (heartNetByUser.get(u.id) ?? 0) > 0,
       streak: hasStarted ? streak : 0,
       total_owed: totalOwed,
+      total_days_worked_out: totalDaysWorkedOut,
+      penalty_count: penaltyCount,
+      consistency_weeks: consistencyWeeks,
+      chart_series: chartSeries,
     };
   });
 
@@ -247,6 +318,10 @@ export async function GET(req: NextRequest) {
     deduction_per_miss: config.deduction_per_miss,
     last_synced_at: lastSync?.[0]?.computed_at ?? null,
     total_pool: totalPool,
+    chart_weeks: allWeekStarts.map((ws, idx) => ({
+      week_start: ws,
+      week_number: idx + 1,
+    })),
     users: dashboardUsers,
   };
 
