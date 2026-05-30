@@ -624,7 +624,7 @@ function UserDetailModal({
                 {user.display_name}
               </div>
               <div className="text-[11px] uppercase tracking-[0.16em] text-muted mt-1">
-                Athlete profile
+                Challenger profile
               </div>
             </div>
           </div>
