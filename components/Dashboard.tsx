@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { DashboardData, DashboardUser } from '@/lib/types';
 import { getBrowserSupabase } from '@/lib/supabase';
+import { addDays } from '@/lib/dates';
 
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'] as const;
 
@@ -78,25 +79,47 @@ function usePresence(): number {
 
 export default function Dashboard({ initialData }: { initialData: DashboardData }) {
   const [data, setData] = useState(initialData);
+  const [selectedWeekStart, setSelectedWeekStart] = useState(initialData.week_start);
+  const [weekLoading, setWeekLoading] = useState(false);
   const [poweredAssetMissing, setPoweredAssetMissing] = useState(false);
   const progress = useChallengeProgress(data.start_date, data.end_date);
   const viewers = usePresence();
 
-  async function refreshData() {
+  async function refreshData(weekStart = selectedWeekStart, showLoading = false) {
+    if (showLoading) setWeekLoading(true);
     try {
-      const res = await fetch(`/api/data/dashboard?t=${Date.now()}`, { cache: 'no-store' });
-      if (res.ok) setData(await res.json());
+      const params = new URLSearchParams({
+        t: String(Date.now()),
+        week_start: weekStart,
+      });
+      const res = await fetch(`/api/data/dashboard?${params.toString()}`, {
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const next = (await res.json()) as DashboardData;
+        setData(next);
+        setSelectedWeekStart(next.week_start);
+      }
     } catch {
       // ignore transient refresh failures
+    } finally {
+      if (showLoading) setWeekLoading(false);
     }
   }
 
+  useEffect(() => {
+    if (selectedWeekStart !== data.week_start) {
+      refreshData(selectedWeekStart, true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedWeekStart]);
+
   // Refresh dashboard data frequently so new joins appear quickly.
   useEffect(() => {
-    const t = setInterval(refreshData, 15_000);
-    const onFocus = () => refreshData();
+    const t = setInterval(() => refreshData(selectedWeekStart), 15_000);
+    const onFocus = () => refreshData(selectedWeekStart);
     const onVisibility = () => {
-      if (document.visibilityState === 'visible') refreshData();
+      if (document.visibilityState === 'visible') refreshData(selectedWeekStart);
     };
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onVisibility);
@@ -105,7 +128,18 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedWeekStart]);
+
+  const rangeStart = new Date(`${data.week_start}T00:00:00Z`);
+  const rangeEnd = new Date(`${addDays(data.week_start, 6)}T00:00:00Z`);
+  const weekRangeLabel = `${rangeStart.toLocaleDateString('en-AU', {
+    day: 'numeric',
+    month: 'short',
+  })} - ${rangeEnd.toLocaleDateString('en-AU', {
+    day: 'numeric',
+    month: 'short',
+  })}`;
 
   return (
     <main className="relative min-h-screen overflow-x-hidden">
@@ -123,6 +157,26 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
             <span className="block">CYAM</span>
             <span className="block text-flame">Hevy Challenge</span>
           </h1>
+
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setSelectedWeekStart(addDays(data.week_start, -7))}
+              disabled={!data.can_go_prev_week || weekLoading}
+              className="px-3 py-1.5 rounded-md bg-elevated border border-line text-[11px] uppercase tracking-wider text-bone disabled:opacity-40"
+            >
+              ← Previous
+            </button>
+            <button
+              onClick={() => setSelectedWeekStart(data.current_week_start)}
+              disabled={data.is_current_week || weekLoading}
+              className="px-3 py-1.5 rounded-md bg-elevated border border-line text-[11px] uppercase tracking-wider text-bone disabled:opacity-40"
+            >
+              Current week
+            </button>
+            <span className="text-[11px] uppercase tracking-widest text-muted">
+              Week {data.week_number} · {weekRangeLabel}
+            </span>
+          </div>
 
           {/* Days remaining + progress bar */}
           <div className="mt-6">
@@ -179,7 +233,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
                 key={u.id}
                 user={u}
                 index={i}
-                todayDow={progress.todayDow}
+                todayDow={data.is_current_week ? progress.todayDow : null}
                 required={data.required_days_per_week}
                 heartsPerUser={data.hearts_per_user}
                 deductionPerMiss={data.deduction_per_miss}
@@ -347,13 +401,15 @@ function UserRow({
 }: {
   user: DashboardUser;
   index: number;
-  todayDow: number;
+  todayDow: number | null;
   required: number;
   heartsPerUser: number;
   deductionPerMiss: number;
 }) {
+  const isCurrentWeekView = todayDow !== null;
   const isOnTrack = user.current_week_days_count >= required || user.current_week_heart_used;
   const danger =
+    isCurrentWeekView &&
     !isOnTrack &&
     user.current_week_days_count < required &&
     todayDow >= 5; // Fri+ and behind = danger zone
@@ -402,8 +458,8 @@ function UserRow({
             key={dow}
             label={DAY_LABELS[dow]}
             done={done}
-            isToday={dow === todayDow}
-            isPast={dow < todayDow}
+            isToday={isCurrentWeekView && dow === todayDow}
+            isPast={isCurrentWeekView && dow < todayDow}
           />
         ))}
       </div>

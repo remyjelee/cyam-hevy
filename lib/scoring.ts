@@ -177,14 +177,20 @@ export async function recomputeWeek(
 
   const distinctDays = new Set((workouts ?? []).map((w: any) => w.workout_date));
   const daysWorkedOut = Math.min(7, distinctDays.size);
+  const weekDayFlags = Array.from({ length: 7 }, (_, i) =>
+    distinctDays.has(addDays(weekStart, i)),
+  );
 
   // Read current row (if any) to preserve heart_used.
   const { data: existing } = await db
     .from('weekly_results')
-    .select('heart_used')
+    .select('heart_used, finalized')
     .eq('user_id', userId)
     .eq('week_start', weekStart)
     .maybeSingle();
+
+  // Frozen finalized weeks should not be rewritten.
+  if (existing?.finalized) return;
 
   const heartUsed = existing?.heart_used ?? false;
   const finalized = todayDateStr >= weekEndExclusive;
@@ -200,6 +206,7 @@ export async function recomputeWeek(
       user_id: userId,
       week_start: weekStart,
       days_worked_out: daysWorkedOut,
+      week_day_flags: weekDayFlags,
       heart_used: heartUsed,
       finalized,
       points_owed: pointsOwed,

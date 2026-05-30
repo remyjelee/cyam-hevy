@@ -32,6 +32,7 @@ export interface WeeklyResult {
   user_id: string;
   week_start: string; // YYYY-MM-DD (Sunday)
   days_worked_out: number;
+  week_day_flags: boolean[] | null;
   heart_used: boolean;
   finalized: boolean;
   points_owed: number;
@@ -71,6 +72,12 @@ export interface DashboardData {
   challenge_name: string;
   start_date: string;
   end_date: string;
+  week_start: string; // selected week start
+  current_week_start: string;
+  week_number: number;
+  is_current_week: boolean;
+  can_go_prev_week: boolean;
+  can_go_next_week: boolean;
   required_days_per_week: number;
   hearts_per_user: number;
   deduction_per_miss: number;

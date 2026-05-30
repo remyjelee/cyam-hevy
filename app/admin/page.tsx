@@ -138,6 +138,7 @@ export default function AdminPage() {
             user={u}
             busy={busy}
             heartsPerUser={data.hearts_per_user}
+            requiredDaysPerWeek={data.required_days_per_week}
             deductionPerMiss={data.deduction_per_miss}
             onUseHeart={() => adminFetch('/api/admin/use-heart', { user_id: u.id })}
             onRefundHeart={() => adminFetch('/api/admin/refund-heart', { user_id: u.id })}
@@ -190,6 +191,7 @@ function AdminUserRow({
   user,
   busy,
   heartsPerUser,
+  requiredDaysPerWeek,
   deductionPerMiss,
   onUseHeart,
   onRefundHeart,
@@ -198,6 +200,7 @@ function AdminUserRow({
   user: DashboardUser;
   busy: string | null;
   heartsPerUser: number;
+  requiredDaysPerWeek: number;
   deductionPerMiss: number;
   onUseHeart: () => void;
   onRefundHeart: () => void;
@@ -220,7 +223,7 @@ function AdminUserRow({
         <div className="flex-1 min-w-0">
           <div className="font-display text-lg uppercase">{user.display_name}</div>
           <div className="text-xs text-muted">
-            {user.current_week_days_count}/4 this week ·{' '}
+            {user.current_week_days_count}/{requiredDaysPerWeek} this week ·{' '}
             {user.hearts_remaining}/{heartsPerUser} hearts ·{' '}
             <span className="text-flame">
               -{Number.isInteger(owedUnits) ? owedUnits : owedUnits.toFixed(1)} owed

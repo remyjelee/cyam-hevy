@@ -52,6 +52,7 @@ create table if not exists weekly_results (
   user_id uuid not null references users(id) on delete cascade,
   week_start date not null,
   days_worked_out int not null default 0,
+  week_day_flags boolean[] not null default array[false,false,false,false,false,false,false],
   heart_used boolean not null default false,
   -- True once the cron has finalized this week (Sunday after the week ends).
   -- During an in-progress week this is false and points_owed is 0.
