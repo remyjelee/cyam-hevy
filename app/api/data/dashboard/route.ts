@@ -246,6 +246,16 @@ export async function GET(req: NextRequest) {
         day_flags: dayFlags,
       };
     });
+    const consistencyWeekCount = consistencyWeeks.length;
+    const weekdayTotals = Array.from({ length: 7 }, () => 0);
+    for (const w of consistencyWeeks) {
+      for (let i = 0; i < 7; i += 1) {
+        if (w.day_flags[i]) weekdayTotals[i] += 1;
+      }
+    }
+    const consistencyWeekdayIntensity = weekdayTotals.map((n) =>
+      consistencyWeekCount > 0 ? n / consistencyWeekCount : 0,
+    );
 
     let cumulative = 0;
     const chartSeries = consistencyWeeks.map((w) => {
@@ -280,7 +290,8 @@ export async function GET(req: NextRequest) {
       total_owed: totalOwed,
       total_days_worked_out: totalDaysWorkedOut,
       penalty_count: penaltyCount,
-      consistency_weeks: consistencyWeeks,
+      consistency_weekday_intensity: consistencyWeekdayIntensity,
+      consistency_week_count: consistencyWeekCount,
       chart_series: chartSeries,
     };
   });

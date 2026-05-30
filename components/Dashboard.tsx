@@ -648,7 +648,10 @@ function UserDetailModal({
           <div className="text-[11px] uppercase tracking-[0.16em] text-muted mb-2">
             Consistency Heatmap
           </div>
-          <ConsistencyHeatmap weeks={user.consistency_weeks} />
+          <ConsistencyHeatmap
+            weekdayIntensity={user.consistency_weekday_intensity}
+            weekCount={user.consistency_week_count}
+          />
         </div>
       </div>
     </div>
@@ -665,47 +668,48 @@ function ModalStat({ label, value }: { label: string; value: string }) {
 }
 
 function ConsistencyHeatmap({
-  weeks,
+  weekdayIntensity,
+  weekCount,
 }: {
-  weeks: Array<{ week_start: string; week_number: number; day_flags: boolean[] }>;
+  weekdayIntensity: number[]; // Sun..Sat
+  weekCount: number;
 }) {
-  const shown = weeks.slice(-10);
+  const cells = Array.from({ length: 7 }, (_, i) => weekdayIntensity[i] ?? 0);
+  const cellClass = (v: number) => {
+    if (v <= 0) return 'bg-elevated/40 border-line';
+    if (v < 0.2) return 'bg-live/15 border-live/30';
+    if (v < 0.4) return 'bg-live/25 border-live/45';
+    if (v < 0.6) return 'bg-live/35 border-live/60';
+    if (v < 0.8) return 'bg-live/50 border-live/70';
+    return 'bg-live/70 border-live/85';
+  };
+
   return (
     <div>
-      <div>
-        <div className="grid grid-cols-[42px_repeat(7,minmax(0,1fr))] sm:grid-cols-[64px_repeat(7,minmax(0,1fr))] gap-0.5 sm:gap-1 mb-1">
-          <div />
-          {DAY_LABELS.map((d) => (
-            <div
-              key={d}
-              className="text-[9px] sm:text-[10px] text-muted uppercase tracking-wider text-center"
-            >
-              {d}
-            </div>
-          ))}
-        </div>
-        <div className="space-y-0.5 sm:space-y-1">
-          {shown.map((w) => (
-            <div
-              key={w.week_start}
-              className="grid grid-cols-[42px_repeat(7,minmax(0,1fr))] sm:grid-cols-[64px_repeat(7,minmax(0,1fr))] gap-0.5 sm:gap-1 items-center"
-            >
-              <div className="text-[9px] sm:text-[10px] text-muted uppercase tracking-wider">
-                W{w.week_number}
-              </div>
-              {w.day_flags.map((done, i) => (
-                <div
-                  key={`${w.week_start}-${i}`}
-                  className={`h-6 rounded-sm border ${
-                    done
-                      ? 'bg-live/25 border-live/60'
-                      : 'bg-elevated/40 border-line'
-                  }`}
-                />
-              ))}
-            </div>
-          ))}
-        </div>
+      <div className="grid grid-cols-7 gap-1 mb-1">
+        {DAY_LABELS.map((d) => (
+          <div key={d} className="text-[9px] sm:text-[10px] text-muted uppercase tracking-wider text-center">
+            {d}
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {cells.map((v, i) => (
+          <div
+            key={i}
+            className={`h-8 rounded-sm border ${cellClass(v)}`}
+            title={`${DAY_LABELS[i]}: ${Math.round(v * 100)}% over ${weekCount} week${weekCount === 1 ? '' : 's'}`}
+          />
+        ))}
+      </div>
+      <div className="mt-2 text-[10px] text-muted uppercase tracking-wider">
+        Based on {weekCount} week{weekCount === 1 ? '' : 's'}
+      </div>
+      <div className="mt-1 flex items-center gap-1.5">
+        {[0.1, 0.3, 0.5, 0.7, 0.9].map((v) => (
+          <div key={v} className={`w-4 h-2 rounded-sm border ${cellClass(v)}`} />
+        ))}
+        <span className="text-[9px] text-muted uppercase tracking-wider">less → more</span>
       </div>
     </div>
   );

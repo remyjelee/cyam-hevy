@@ -68,11 +68,8 @@ export interface DashboardUser {
   total_owed: number;
   total_days_worked_out: number;
   penalty_count: number;
-  consistency_weeks: Array<{
-    week_start: string;
-    week_number: number;
-    day_flags: boolean[];
-  }>;
+  consistency_weekday_intensity: number[]; // Sun..Sat, 0..1
+  consistency_week_count: number;
   chart_series: Array<{
     week_start: string;
     week_number: number;
