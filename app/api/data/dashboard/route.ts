@@ -296,10 +296,16 @@ export async function GET(req: NextRequest) {
     };
   });
 
-  // Sort: most days first, then fewest owed, then name.
+  // Sort: most days first, then who reached that count earlier in the week,
+  // then fewest owed, then name.
   dashboardUsers.sort((a, b) => {
     if (b.current_week_days_count !== a.current_week_days_count) {
       return b.current_week_days_count - a.current_week_days_count;
+    }
+    for (let i = 0; i < 7; i += 1) {
+      const aDone = a.current_week_days[i] ? 1 : 0;
+      const bDone = b.current_week_days[i] ? 1 : 0;
+      if (aDone !== bDone) return bDone - aDone;
     }
     if (a.total_owed !== b.total_owed) return a.total_owed - b.total_owed;
     return a.display_name.localeCompare(b.display_name);
