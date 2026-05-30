@@ -722,8 +722,8 @@ function GroupCumulativeChart({
   users: DashboardUser[];
   weeks: Array<{ week_start: string; week_number: number }>;
 }) {
-  const width = 920;
-  const height = 230;
+  const width = 1080;
+  const height = 260;
   const padding = { top: 16, right: 18, bottom: 28, left: 30 };
   const innerW = width - padding.left - padding.right;
   const innerH = height - padding.top - padding.bottom;
@@ -744,11 +744,11 @@ function GroupCumulativeChart({
 
   return (
     <div className="rounded-xl border border-line bg-surface p-3">
-      <div>
+      <div className="overflow-x-auto">
         <svg
           viewBox={`0 0 ${width} ${height}`}
           preserveAspectRatio="xMidYMid meet"
-          className="w-full h-[170px] sm:h-[220px]"
+          className="w-full min-w-[920px] h-[220px] sm:h-[250px]"
         >
           {[0, 0.25, 0.5, 0.75, 1].map((t) => {
             const v = Math.round(maxY * t);
@@ -767,7 +767,7 @@ function GroupCumulativeChart({
                   x={4}
                   y={yy + 4}
                   fill="#7A7A7A"
-                  fontSize="9"
+                  fontSize="10"
                   fontFamily="JetBrains Mono, monospace"
                 >
                   {v}
@@ -800,7 +800,7 @@ function GroupCumulativeChart({
                 x={padding.left}
                 y={height - 8}
                 fill="#7A7A7A"
-                fontSize="9"
+                fontSize="10"
                 fontFamily="JetBrains Mono, monospace"
               >
                 Wk {weeks[0].week_number}
@@ -809,7 +809,7 @@ function GroupCumulativeChart({
                 x={width - padding.right - 32}
                 y={height - 8}
                 fill="#7A7A7A"
-                fontSize="9"
+                fontSize="10"
                 fontFamily="JetBrains Mono, monospace"
               >
                 Wk {weeks[weeks.length - 1].week_number}
