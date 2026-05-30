@@ -4,6 +4,7 @@ import { getServerSupabase } from '@/lib/supabase';
 import { syncUser } from '@/lib/scoring';
 import { todayAEST } from '@/lib/dates';
 import { ChallengeConfig } from '@/lib/types';
+import { decryptSecret, encryptSecret } from '@/lib/secrets';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,7 +67,7 @@ export async function GET(req: NextRequest) {
 
   const creds = {
     clientId: pending.strava_client_id,
-    clientSecret: pending.strava_client_secret,
+    clientSecret: decryptSecret(pending.strava_client_secret),
   };
 
   let tokenResponse;
@@ -98,9 +99,9 @@ export async function GET(req: NextRequest) {
       display_name: displayName,
       display_color: displayColor,
       strava_client_id: creds.clientId,
-      strava_client_secret: creds.clientSecret,
-      strava_access_token: tokenResponse.access_token,
-      strava_refresh_token: tokenResponse.refresh_token,
+      strava_client_secret: encryptSecret(creds.clientSecret),
+      strava_access_token: encryptSecret(tokenResponse.access_token),
+      strava_refresh_token: encryptSecret(tokenResponse.refresh_token),
       strava_token_expires_at: new Date(
         tokenResponse.expires_at * 1000,
       ).toISOString(),

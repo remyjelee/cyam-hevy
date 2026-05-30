@@ -75,6 +75,7 @@ gh repo create cyam-hevy-challenge --private --source=. --push
 | `NEXT_PUBLIC_APP_URL` | `https://<your-project>.vercel.app` (no trailing slash) |
 | `ADMIN_PASSWORD` | a long random string you'll remember (controls /admin access) |
 | `CRON_SECRET` | another long random string (Vercel uses this to authenticate the cron call) |
+| `DATA_ENCRYPTION_KEY` | long random string used to encrypt stored Strava secrets/tokens |
 
 3. Deploy. Vercel will give you a URL like `https://cyam-hevy-challenge.vercel.app`.
 4. **Update the values you set to placeholders earlier:**

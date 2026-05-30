@@ -8,6 +8,7 @@ import {
   StravaActivity,
   StravaCredentials,
 } from './strava';
+import { decryptSecret, encryptSecret } from './secrets';
 
 // =============================================================================
 // Sync + score logic.
@@ -29,7 +30,9 @@ interface UserRow {
 function userCreds(user: UserRow): StravaCredentials {
   return {
     clientId: user.strava_client_id || process.env.STRAVA_CLIENT_ID || '',
-    clientSecret: user.strava_client_secret || process.env.STRAVA_CLIENT_SECRET || '',
+    clientSecret: user.strava_client_secret
+      ? decryptSecret(user.strava_client_secret)
+      : process.env.STRAVA_CLIENT_SECRET || '',
   };
 }
 
@@ -48,15 +51,18 @@ async function ensureAccessToken(
 
   // Refresh if expiring within 5 minutes.
   if (user.strava_access_token && expiresAt > now + 300) {
-    return user.strava_access_token;
+    return decryptSecret(user.strava_access_token);
   }
 
-  const tok = await refreshAccessToken(userCreds(user), user.strava_refresh_token);
+  const tok = await refreshAccessToken(
+    userCreds(user),
+    decryptSecret(user.strava_refresh_token),
+  );
   await db
     .from('users')
     .update({
-      strava_access_token: tok.access_token,
-      strava_refresh_token: tok.refresh_token,
+      strava_access_token: encryptSecret(tok.access_token),
+      strava_refresh_token: encryptSecret(tok.refresh_token),
       strava_token_expires_at: new Date(tok.expires_at * 1000).toISOString(),
     })
     .eq('id', user.id);

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
 import { buildAuthorizeUrl } from '@/lib/strava';
 import { getServerSupabase } from '@/lib/supabase';
+import { encryptSecret } from '@/lib/secrets';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
   const { error: insertError } = await db.from('pending_connections').insert({
     token,
     strava_client_id: clientId,
-    strava_client_secret: clientSecret,
+    strava_client_secret: encryptSecret(clientSecret),
     display_name: name,
     display_color: color,
   });
