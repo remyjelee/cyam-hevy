@@ -194,17 +194,19 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
           <button
             onClick={() => setSelectedWeekStart(addDays(data.week_start, -7))}
             disabled={!data.can_go_prev_week || weekLoading}
-            className="inline-flex items-center px-3 py-1.5 rounded-md bg-elevated/65 border border-line text-[11px] uppercase tracking-wider text-bone/90 hover:border-flame/50 hover:text-bone transition-colors disabled:opacity-0 disabled:pointer-events-none"
+            className="inline-flex items-center px-2.5 py-1.5 rounded-md bg-elevated/65 border border-line text-[12px] text-bone/90 hover:border-flame/50 hover:text-bone transition-colors disabled:opacity-0 disabled:pointer-events-none"
+            aria-label="Previous week"
           >
-            ← Previous week
+            ←
           </button>
 
           <button
             onClick={() => setSelectedWeekStart(addDays(data.week_start, 7))}
             disabled={!data.can_go_next_week || weekLoading}
-            className="absolute right-0 inline-flex items-center px-3 py-1.5 rounded-md bg-elevated/65 border border-line text-[11px] uppercase tracking-wider text-bone/90 hover:border-flame/50 hover:text-bone transition-colors disabled:opacity-0 disabled:pointer-events-none"
+            className="absolute right-0 inline-flex items-center px-2.5 py-1.5 rounded-md bg-elevated/65 border border-line text-[12px] text-bone/90 hover:border-flame/50 hover:text-bone transition-colors disabled:opacity-0 disabled:pointer-events-none"
+            aria-label="Next week"
           >
-            Next week →
+            →
           </button>
 
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
@@ -742,6 +744,28 @@ function GroupCumulativeChart({
   const y = (value: number) =>
     padding.top + innerH - (value / maxY) * innerH;
 
+  // Avoid complete line overlap when many users share identical cumulative totals.
+  const yOffsetPxByUserWeek = new Map<string, number[]>();
+  for (let w = 0; w < weeks.length; w += 1) {
+    const buckets = new Map<number, string[]>();
+    for (const u of users) {
+      const p = u.chart_series.find((s) => s.week_start === weeks[w].week_start);
+      const val = p?.cumulative_days ?? 0;
+      const arr = buckets.get(val) ?? [];
+      arr.push(u.id);
+      buckets.set(val, arr);
+    }
+    for (const ids of buckets.values()) {
+      if (ids.length <= 1) continue;
+      ids.forEach((id, idx) => {
+        const centered = idx - (ids.length - 1) / 2;
+        const offsets = yOffsetPxByUserWeek.get(id) ?? Array(weeks.length).fill(0);
+        offsets[w] = centered * 2.4;
+        yOffsetPxByUserWeek.set(id, offsets);
+      });
+    }
+  }
+
   return (
     <div className="rounded-xl border border-line bg-surface p-3">
       <div className="overflow-x-auto">
@@ -779,7 +803,9 @@ function GroupCumulativeChart({
           {users.map((u) => {
             const points = weeks.map((w, idx) => {
               const p = u.chart_series.find((s) => s.week_start === w.week_start);
-              return `${x(idx)},${y(p?.cumulative_days ?? 0)}`;
+              const baseY = y(p?.cumulative_days ?? 0);
+              const yOffset = yOffsetPxByUserWeek.get(u.id)?.[idx] ?? 0;
+              return `${x(idx)},${baseY + yOffset}`;
             });
             return (
               <polyline

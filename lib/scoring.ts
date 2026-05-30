@@ -190,13 +190,24 @@ export async function recomputeWeek(
   // Read current row (if any) to preserve heart_used.
   const { data: existing } = await db
     .from('weekly_results')
-    .select('heart_used, finalized')
+    .select('heart_used, finalized, days_worked_out, week_day_flags')
     .eq('user_id', userId)
     .eq('week_start', weekStart)
     .maybeSingle();
 
-  // Frozen finalized weeks should not be rewritten.
-  if (existing?.finalized) return;
+  // Keep finalized weeks frozen unless source workout data actually changed.
+  if (existing?.finalized) {
+    const existingFlags =
+      Array.isArray((existing as any).week_day_flags) &&
+      (existing as any).week_day_flags.length === 7
+        ? (existing as any).week_day_flags.map(Boolean)
+        : [];
+    const unchanged =
+      (existing as any).days_worked_out === daysWorkedOut &&
+      existingFlags.length === 7 &&
+      existingFlags.every((v: boolean, i: number) => v === weekDayFlags[i]);
+    if (unchanged) return;
+  }
 
   const heartUsed = existing?.heart_used ?? false;
   const finalized = todayDateStr >= weekEndExclusive;
