@@ -671,24 +671,27 @@ function ConsistencyHeatmap({
 }) {
   const shown = weeks.slice(-10);
   return (
-    <div className="overflow-x-auto">
-      <div className="min-w-[560px]">
-        <div className="grid grid-cols-[64px_repeat(7,minmax(0,1fr))] gap-1 mb-1">
+    <div>
+      <div>
+        <div className="grid grid-cols-[42px_repeat(7,minmax(0,1fr))] sm:grid-cols-[64px_repeat(7,minmax(0,1fr))] gap-0.5 sm:gap-1 mb-1">
           <div />
           {DAY_LABELS.map((d) => (
-            <div key={d} className="text-[10px] text-muted uppercase tracking-wider text-center">
+            <div
+              key={d}
+              className="text-[9px] sm:text-[10px] text-muted uppercase tracking-wider text-center"
+            >
               {d}
             </div>
           ))}
         </div>
-        <div className="space-y-1">
+        <div className="space-y-0.5 sm:space-y-1">
           {shown.map((w) => (
             <div
               key={w.week_start}
-              className="grid grid-cols-[64px_repeat(7,minmax(0,1fr))] gap-1 items-center"
+              className="grid grid-cols-[42px_repeat(7,minmax(0,1fr))] sm:grid-cols-[64px_repeat(7,minmax(0,1fr))] gap-0.5 sm:gap-1 items-center"
             >
-              <div className="text-[10px] text-muted uppercase tracking-wider">
-                Wk {w.week_number}
+              <div className="text-[9px] sm:text-[10px] text-muted uppercase tracking-wider">
+                W{w.week_number}
               </div>
               {w.day_flags.map((done, i) => (
                 <div
@@ -716,7 +719,7 @@ function GroupCumulativeChart({
   weeks: Array<{ week_start: string; week_number: number }>;
 }) {
   const width = 920;
-  const height = 260;
+  const height = 230;
   const padding = { top: 16, right: 18, bottom: 28, left: 30 };
   const innerW = width - padding.left - padding.right;
   const innerH = height - padding.top - padding.bottom;
@@ -737,8 +740,12 @@ function GroupCumulativeChart({
 
   return (
     <div className="rounded-xl border border-line bg-surface p-3">
-      <div className="overflow-x-auto">
-        <svg viewBox={`0 0 ${width} ${height}`} className="w-full min-w-[760px] h-[220px]">
+      <div>
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          preserveAspectRatio="xMidYMid meet"
+          className="w-full h-[170px] sm:h-[220px]"
+        >
           {[0, 0.25, 0.5, 0.75, 1].map((t) => {
             const v = Math.round(maxY * t);
             const yy = y(v);
@@ -756,7 +763,7 @@ function GroupCumulativeChart({
                   x={4}
                   y={yy + 4}
                   fill="#7A7A7A"
-                  fontSize="10"
+                  fontSize="9"
                   fontFamily="JetBrains Mono, monospace"
                 >
                   {v}
@@ -789,7 +796,7 @@ function GroupCumulativeChart({
                 x={padding.left}
                 y={height - 8}
                 fill="#7A7A7A"
-                fontSize="10"
+                fontSize="9"
                 fontFamily="JetBrains Mono, monospace"
               >
                 Wk {weeks[0].week_number}
@@ -798,7 +805,7 @@ function GroupCumulativeChart({
                 x={width - padding.right - 32}
                 y={height - 8}
                 fill="#7A7A7A"
-                fontSize="10"
+                fontSize="9"
                 fontFamily="JetBrains Mono, monospace"
               >
                 Wk {weeks[weeks.length - 1].week_number}
@@ -808,11 +815,11 @@ function GroupCumulativeChart({
         </svg>
       </div>
 
-      <div className="mt-2 flex flex-wrap gap-2">
+      <div className="mt-2 grid grid-cols-2 sm:flex sm:flex-wrap gap-1.5 sm:gap-2">
         {users.map((u) => (
           <div
             key={u.id}
-            className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted"
+            className="inline-flex items-center gap-1.5 text-[9px] sm:text-[10px] uppercase tracking-wider text-muted"
           >
             <span
               className="w-2.5 h-2.5 rounded-full"
