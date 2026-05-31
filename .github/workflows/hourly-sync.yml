@@ -12,5 +12,7 @@ jobs:
     steps:
       - name: Trigger sync endpoint
         run: |
-          curl -sS -f "${{ secrets.APP_URL }}/api/cron/sync" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+          RESPONSE="$(curl -sS -fL "${{ secrets.APP_URL }}/api/cron/sync" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")"
+          echo "$RESPONSE"
+          echo "$RESPONSE" | grep -q '"ok"[[:space:]]*:[[:space:]]*true'
