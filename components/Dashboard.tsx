@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { DashboardData, DashboardUser } from '@/lib/types';
 import { getBrowserSupabase } from '@/lib/supabase';
 import { addDays } from '@/lib/dates';
@@ -81,6 +81,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
   const [data, setData] = useState(initialData);
   const [selectedWeekStart, setSelectedWeekStart] = useState(initialData.week_start);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [rulesOpen, setRulesOpen] = useState(false);
   const [weekLoading, setWeekLoading] = useState(false);
   const [poweredAssetMissing, setPoweredAssetMissing] = useState(false);
   const progress = useChallengeProgress(data.start_date, data.end_date);
@@ -150,6 +151,17 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
             <span className="block text-flame">Hevy Challenge</span>
           </h1>
 
+          <div className="mt-4 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setRulesOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-line/90 bg-elevated/60 text-[10px] sm:text-[11px] uppercase tracking-[0.16em] text-muted hover:text-bone hover:border-flame/45 transition-colors"
+            >
+              <span className="font-mono text-[11px]">?</span>
+              Rules
+            </button>
+          </div>
+
           {/* Days remaining + progress bar */}
           <div className="mt-6">
             <div className="flex items-baseline justify-between mb-2">
@@ -178,15 +190,16 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
             </div>
           </div>
 
-          {/* Pool + rules summary */}
-          <div className="mt-6 flex flex-wrap gap-3 text-xs">
-            <Stat label="Pool" value={`$${data.total_pool}`} accent />
-            <Stat
-              label="Required"
-              value={`${data.required_days_per_week}× / week`}
-            />
-            <Stat label="Min" value="30 min" />
-            <Stat label="Penalty" value={`-$${data.deduction_per_miss}`} />
+          <div className="mt-6 flex justify-center">
+            <div className="relative px-6 py-4 rounded-xl border border-flame/35 bg-gradient-to-b from-flame/15 via-flame/8 to-transparent text-center">
+              <div className="absolute inset-0 rounded-xl pointer-events-none shadow-[0_0_28px_rgba(255,117,57,0.12)]" />
+              <div className="relative text-[10px] uppercase tracking-[0.2em] text-muted">
+                Current Pool
+              </div>
+              <div className="relative font-display text-[clamp(2rem,8vw,3.25rem)] leading-none text-flame mt-1">
+                ${data.total_pool}
+              </div>
+            </div>
           </div>
         </header>
 
@@ -355,6 +368,14 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
           onClose={() => setSelectedUserId(null)}
         />
       )}
+      {rulesOpen && (
+        <RulesModal
+          requiredDays={data.required_days_per_week}
+          minSeconds={1800}
+          penalty={data.deduction_per_miss}
+          onClose={() => setRulesOpen(false)}
+        />
+      )}
     </main>
   );
 }
@@ -365,31 +386,6 @@ function formatPenaltyUnits(amount: number): string {
 }
 
 // =============================================================================
-function Stat({
-  label,
-  value,
-  accent,
-}: {
-  label: string;
-  value: string;
-  accent?: boolean;
-}) {
-  return (
-    <div
-      className={`px-3 py-2 rounded-md border ${
-        accent
-          ? 'border-flame/40 bg-flame/10 text-flame'
-          : 'border-line bg-surface text-bone'
-      }`}
-    >
-      <div className="text-[9px] uppercase tracking-widest text-muted">
-        {label}
-      </div>
-      <div className="font-display text-lg leading-none mt-0.5">{value}</div>
-    </div>
-  );
-}
-
 function PresenceChip({ count }: { count: number }) {
   if (count === 0) return null;
   return (
@@ -401,6 +397,76 @@ function PresenceChip({ count }: { count: number }) {
       <span className="font-mono text-[10px] text-bone">
         {count} {count === 1 ? 'viewer' : 'viewers'}
       </span>
+    </div>
+  );
+}
+
+function RulesModal({
+  requiredDays,
+  minSeconds,
+  penalty,
+  onClose,
+}: {
+  requiredDays: number;
+  minSeconds: number;
+  penalty: number;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    const old = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = old;
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-ink/70 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm rounded-2xl border border-line bg-surface p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.18em] text-muted">
+              Rules
+            </div>
+            <div className="mt-1 text-[10px] uppercase tracking-[0.14em] text-bone/75">
+              Challenge scoring
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="px-2 py-1 rounded-md border border-line bg-elevated text-muted hover:text-bone"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="mt-4 space-y-2">
+          <RuleRow label="Required" value={`${requiredDays}× / week`} />
+          <RuleRow label="Minimum" value={`${Math.round(minSeconds / 60)} min`} />
+          <RuleRow label="Penalty" value={`-$${penalty}`} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RuleRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-line bg-elevated px-3 py-2.5 flex items-center justify-between gap-3">
+      <div className="text-[10px] uppercase tracking-[0.14em] text-muted">{label}</div>
+      <div className="font-mono text-sm text-bone">{value}</div>
     </div>
   );
 }
@@ -770,11 +836,25 @@ function GroupCumulativeChart({
     const height = 356;
     const xStep = 74;
     const padding = { top: 20, right: 22, bottom: 44, left: 40 };
-    const width =
+    const baseWidth =
       padding.left +
       padding.right +
       Math.max(0, weeks.length - 1) * xStep;
-    const innerW = width - padding.left - padding.right;
+    const viewportRef = useRef<HTMLDivElement | null>(null);
+    const [viewportWidth, setViewportWidth] = useState(0);
+
+    useEffect(() => {
+      const el = viewportRef.current;
+      if (!el) return;
+      const update = () => setViewportWidth(el.clientWidth);
+      update();
+      const ro = new ResizeObserver(update);
+      ro.observe(el);
+      return () => ro.disconnect();
+    }, []);
+
+    const width = Math.max(baseWidth, viewportWidth || 0);
+    const innerW = Math.max(1, width - padding.left - padding.right);
     const innerH = height - padding.top - padding.bottom;
     const step = weeks.length > 1 ? innerW / (weeks.length - 1) : innerW;
 
@@ -813,11 +893,13 @@ function GroupCumulativeChart({
 
     return (
       <>
-        <div className="overflow-x-auto pb-1">
+        <div ref={viewportRef} className="overflow-x-auto pb-1">
           <svg
+            width={width}
+            height={height}
             viewBox={`0 0 ${width} ${height}`}
-            preserveAspectRatio="none"
-            className="w-full h-[300px] sm:h-[330px]"
+            preserveAspectRatio="xMinYMid meet"
+            className="block h-[300px] sm:h-[330px]"
           >
             {[0, 0.25, 0.5, 0.75, 1].map((t) => {
               const v = Math.round(maxY * t);
