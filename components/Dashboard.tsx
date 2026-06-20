@@ -816,7 +816,7 @@ function GroupCumulativeChart({
         <div className="overflow-x-auto pb-1">
           <svg
             viewBox={`0 0 ${width} ${height}`}
-            preserveAspectRatio="xMinYMid meet"
+            preserveAspectRatio="none"
             className="w-full h-[300px] sm:h-[330px]"
           >
             {[0, 0.25, 0.5, 0.75, 1].map((t) => {
