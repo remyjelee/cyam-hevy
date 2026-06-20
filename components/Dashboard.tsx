@@ -151,10 +151,15 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
             <span className="block text-flame">Hevy Challenge</span>
           </h1>
 
-          <div className="mt-5 text-center">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-muted">Pool</div>
-            <div className="font-display text-[clamp(2.6rem,10vw,4.35rem)] leading-[0.9] text-flame [text-shadow:0_0_18px_rgba(255,117,57,0.2)]">
-              ${data.total_pool}
+          <div className="mt-5 flex justify-center">
+            <div className="relative min-w-[210px] sm:min-w-[260px] px-7 py-4 rounded-2xl border border-flame/40 bg-gradient-to-b from-flame/16 via-flame/8 to-transparent text-center">
+              <div className="absolute inset-0 rounded-2xl pointer-events-none shadow-[0_0_24px_rgba(255,117,57,0.13)]" />
+              <div className="relative text-[10px] uppercase tracking-[0.2em] text-muted">
+                Pool
+              </div>
+              <div className="relative mt-2 font-display text-[clamp(2.7rem,10.5vw,4.6rem)] leading-[0.88] text-flame [text-shadow:0_0_18px_rgba(255,117,57,0.2)]">
+                ${data.total_pool}
+              </div>
             </div>
           </div>
 
@@ -823,7 +828,7 @@ function GroupCumulativeChart({
   function ChartSurface() {
     const height = 356;
     const xStep = 74;
-    const padding = { top: 20, right: 22, bottom: 44, left: 40 };
+    const padding = { top: 20, right: 8, bottom: 44, left: 40 };
     const baseWidth =
       padding.left +
       padding.right +
@@ -1048,7 +1053,7 @@ function GroupCumulativeChart({
 
   return (
     <div className="mx-[-10px] sm:mx-[-14px]">
-      <div className="px-1 sm:px-2">
+      <div>
         <div className="flex items-center justify-end gap-1.5 mb-2.5 flex-wrap">
           <div className="inline-flex items-center gap-1.5">
             <button
