@@ -722,11 +722,6 @@ function shortWeekDate(weekStart: string): string {
   return d.toLocaleDateString('en-AU', { day: '2-digit', month: 'short' });
 }
 
-function formatMetricValue(metric: 'cumulative' | 'weekly', value: number): string {
-  if (metric === 'weekly') return `${value} day${value === 1 ? '' : 's'}`;
-  return `${value} total`;
-}
-
 function GroupCumulativeChart({
   users,
   weeks,
@@ -739,21 +734,11 @@ function GroupCumulativeChart({
   const [activeWeekIdx, setActiveWeekIdx] = useState(
     weeks.length > 0 ? weeks.length - 1 : 0,
   );
-  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     if (weeks.length === 0) return;
     setActiveWeekIdx((prev) => Math.min(Math.max(prev, 0), weeks.length - 1));
   }, [weeks.length]);
-
-  useEffect(() => {
-    if (!expanded) return;
-    const old = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = old;
-    };
-  }, [expanded]);
 
   const chartRows = useMemo(
     () =>
@@ -781,16 +766,14 @@ function GroupCumulativeChart({
     ...chartRows.flatMap((row) => seriesFor(row)),
   );
 
-  function ChartSurface({ fullscreen }: { fullscreen: boolean }) {
-    const height = fullscreen ? 360 : 256;
-    const xStep = fullscreen ? 74 : 66;
-    const padding = fullscreen
-      ? { top: 20, right: 22, bottom: 44, left: 40 }
-      : { top: 18, right: 18, bottom: 42, left: 34 };
+  function ChartSurface() {
+    const height = 356;
+    const xStep = 74;
+    const padding = { top: 20, right: 22, bottom: 44, left: 40 };
     const width =
       padding.left +
       padding.right +
-      Math.max(1, weeks.length - 1) * xStep;
+      Math.max(0, weeks.length - 1) * xStep;
     const innerW = width - padding.left - padding.right;
     const innerH = height - padding.top - padding.bottom;
     const step = weeks.length > 1 ? innerW / (weeks.length - 1) : innerW;
@@ -834,7 +817,7 @@ function GroupCumulativeChart({
           <svg
             viewBox={`0 0 ${width} ${height}`}
             preserveAspectRatio="xMinYMid meet"
-            className={`w-full ${fullscreen ? 'min-w-[1020px] h-[330px]' : 'min-w-[900px] h-[230px] sm:h-[245px]'}`}
+            className="w-full h-[300px] sm:h-[330px]"
           >
             {[0, 0.25, 0.5, 0.75, 1].map((t) => {
               const v = Math.round(maxY * t);
@@ -853,7 +836,7 @@ function GroupCumulativeChart({
                     x={6}
                     y={yy + 4}
                     fill="#7A7A7A"
-                    fontSize={fullscreen ? '11' : '10'}
+                    fontSize="11"
                     fontFamily="JetBrains Mono, monospace"
                   >
                     {v}
@@ -880,7 +863,7 @@ function GroupCumulativeChart({
                   y={height - 9}
                   textAnchor="middle"
                   fill={idx === activeWeekIdx ? '#F5F2EA' : '#7A7A7A'}
-                  fontSize={fullscreen ? '10.5' : '9.5'}
+                  fontSize="10.5"
                   fontFamily="JetBrains Mono, monospace"
                 >
                   W{w.week_number}
@@ -900,7 +883,7 @@ function GroupCumulativeChart({
                   key={row.user.id}
                   fill="none"
                   stroke={withReadableAlpha(row.user.display_color ?? '#F5F2EA', focused ? 0.92 : 0.22)}
-                  strokeWidth={focused ? (fullscreen ? 2.6 : 2.4) : 1.25}
+                  strokeWidth={focused ? 2.35 : 1.1}
                   points={points.join(' ')}
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -981,7 +964,7 @@ function GroupCumulativeChart({
                       </span>
                     </span>
                     <span className="font-mono text-[10px] text-bone shrink-0">
-                      {formatMetricValue(metric, row.value)}
+                      {row.value}
                     </span>
                   </button>
                 );
@@ -994,12 +977,9 @@ function GroupCumulativeChart({
   }
 
   return (
-    <>
-      <div className="rounded-xl border border-line bg-surface p-3">
-        <div className="flex items-center justify-between gap-2 mb-2.5 flex-wrap">
-          <div className="text-[10px] sm:text-[11px] uppercase tracking-[0.16em] text-muted">
-            {weeks.length} week{weeks.length === 1 ? '' : 's'} tracked
-          </div>
+    <div className="mx-[-10px] sm:mx-[-14px]">
+      <div className="px-1 sm:px-2">
+        <div className="flex items-center justify-end gap-1.5 mb-2.5 flex-wrap">
           <div className="inline-flex items-center gap-1.5">
             <button
               type="button"
@@ -1023,47 +1003,18 @@ function GroupCumulativeChart({
             >
               Weekly
             </button>
-            <button
-              type="button"
-              onClick={() => setExpanded(true)}
-              className="px-2 py-1 rounded-md border border-line bg-elevated text-[10px] uppercase tracking-widest text-muted hover:text-bone"
-            >
-              Expand
-            </button>
           </div>
         </div>
 
-        <ChartSurface fullscreen={false} />
+        <ChartSurface />
 
         {weeks.length > 5 && (
-          <p className="mt-2 text-[10px] uppercase tracking-[0.14em] text-muted">
+          <p className="mt-2 px-1 text-[10px] uppercase tracking-[0.14em] text-muted">
             Swipe horizontally to see every week
           </p>
         )}
       </div>
-
-      {expanded && (
-        <div className="fixed inset-0 z-50 bg-ink/78 backdrop-blur-sm p-3 sm:p-5">
-          <div className="h-full w-full rounded-2xl border border-line bg-surface p-3 sm:p-4 flex flex-col">
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <div className="text-[11px] uppercase tracking-[0.16em] text-muted">
-                Group Momentum · Fullscreen
-              </div>
-              <button
-                type="button"
-                onClick={() => setExpanded(false)}
-                className="px-2 py-1 rounded-md border border-line bg-elevated text-[10px] uppercase tracking-widest text-muted hover:text-bone"
-              >
-                Close
-              </button>
-            </div>
-            <div className="flex-1 min-h-0">
-              <ChartSurface fullscreen />
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+    </div>
   );
 }
 
