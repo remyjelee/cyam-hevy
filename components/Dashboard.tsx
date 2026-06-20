@@ -151,19 +151,15 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
             <span className="block text-flame">Hevy Challenge</span>
           </h1>
 
-          <div className="mt-4 flex justify-end">
-            <button
-              type="button"
-              onClick={() => setRulesOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-line/90 bg-elevated/60 text-[10px] sm:text-[11px] uppercase tracking-[0.16em] text-muted hover:text-bone hover:border-flame/45 transition-colors"
-            >
-              <span className="font-mono text-[11px]">?</span>
-              Rules
-            </button>
+          <div className="mt-5 text-center">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-muted">Pool</div>
+            <div className="font-display text-[clamp(2.6rem,10vw,4.35rem)] leading-[0.9] text-flame [text-shadow:0_0_18px_rgba(255,117,57,0.2)]">
+              ${data.total_pool}
+            </div>
           </div>
 
           {/* Days remaining + progress bar */}
-          <div className="mt-6">
+          <div className="mt-5">
             <div className="flex items-baseline justify-between mb-2">
               <div>
                 <div className="days-float">
@@ -188,17 +184,14 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
                 style={{ width: `${progress.percent}%` }}
               />
             </div>
-          </div>
-
-          <div className="mt-6 flex justify-center">
-            <div className="relative px-6 py-4 rounded-xl border border-flame/35 bg-gradient-to-b from-flame/15 via-flame/8 to-transparent text-center">
-              <div className="absolute inset-0 rounded-xl pointer-events-none shadow-[0_0_28px_rgba(255,117,57,0.12)]" />
-              <div className="relative text-[10px] uppercase tracking-[0.2em] text-muted">
-                Current Pool
-              </div>
-              <div className="relative font-display text-[clamp(2rem,8vw,3.25rem)] leading-none text-flame mt-1">
-                ${data.total_pool}
-              </div>
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setRulesOpen(true)}
+                className="inline-flex items-center px-2.5 py-1 rounded-md border border-line/80 bg-elevated/45 text-[10px] uppercase tracking-[0.16em] text-muted hover:text-bone hover:border-flame/40 transition-colors"
+              >
+                Rules
+              </button>
             </div>
           </div>
         </header>
@@ -436,12 +429,7 @@ function RulesModal({
       >
         <div className="flex items-start justify-between">
           <div>
-            <div className="text-[11px] uppercase tracking-[0.18em] text-muted">
-              Rules
-            </div>
-            <div className="mt-1 text-[10px] uppercase tracking-[0.14em] text-bone/75">
-              Challenge scoring
-            </div>
+            <div className="text-[11px] uppercase tracking-[0.18em] text-muted">Rules</div>
           </div>
           <button
             onClick={onClose}
