@@ -151,10 +151,6 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
             <span className="block text-flame">Hevy Challenge</span>
           </h1>
 
-          <div className="mt-6 flex justify-center">
-            <Stat label="Pool" value={`$${data.total_pool}`} accent />
-          </div>
-
           {/* Days remaining + progress bar */}
           <div className="mt-5">
             <div className="flex items-baseline justify-between mb-2">
@@ -180,6 +176,9 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
                 className="h-full bg-gradient-to-r from-flame to-ember transition-all duration-700"
                 style={{ width: `${progress.percent}%` }}
               />
+            </div>
+            <div className="mt-4 flex justify-center">
+              <Stat label="Pool" value={`$${data.total_pool}`} accent />
             </div>
             <div className="mt-3 flex justify-end">
               <button
@@ -370,20 +369,27 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
             rgba(255, 210, 160, 0.2),
             rgba(255, 255, 255, 0)
           );
+          opacity: 0;
           pointer-events: none;
-          animation: poolSheen 7.5s ease-in-out infinite;
+          animation: poolSheen 8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
         }
 
         @keyframes poolSheen {
           0%,
-          82% {
-            transform: rotate(18deg) translateX(-220%);
+          70% {
+            transform: rotate(18deg) translateX(-240%);
+            opacity: 0;
           }
-          92% {
-            transform: rotate(18deg) translateX(420%);
+          76% {
+            opacity: 0.55;
+          }
+          90% {
+            transform: rotate(18deg) translateX(640%);
+            opacity: 0;
           }
           100% {
-            transform: rotate(18deg) translateX(420%);
+            transform: rotate(18deg) translateX(640%);
+            opacity: 0;
           }
         }
       `}</style>
