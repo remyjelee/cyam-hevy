@@ -177,17 +177,17 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
                 style={{ width: `${progress.percent}%` }}
               />
             </div>
-            <div className="mt-4 flex justify-center">
-              <Stat label="Pool" value={`$${data.total_pool}`} accent />
-            </div>
-            <div className="mt-3 flex justify-end">
+            <div className="mt-1.5 flex justify-start">
               <button
                 type="button"
                 onClick={() => setRulesOpen(true)}
-                className="inline-flex items-center px-2.5 py-1 rounded-md border border-line/80 bg-elevated/45 text-[10px] uppercase tracking-[0.16em] text-muted hover:text-bone hover:border-flame/40 transition-colors"
+                className="inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] tracking-[0.06em] text-muted/80 hover:text-bone/90 transition-colors"
               >
-                Rules
+                View rules
               </button>
+            </div>
+            <div className="mt-2.5 flex justify-center">
+              <Stat label="Pool" value={`$${data.total_pool}`} accent />
             </div>
           </div>
         </header>
