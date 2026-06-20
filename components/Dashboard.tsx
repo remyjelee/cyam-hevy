@@ -181,7 +181,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
               <button
                 type="button"
                 onClick={() => setRulesOpen(true)}
-                className="inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] tracking-[0.06em] text-muted/80 hover:text-bone/90 transition-colors"
+                className="inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] uppercase tracking-[0.14em] text-muted/75 hover:text-bone/90 transition-colors"
               >
                 View rules
               </button>
@@ -953,7 +953,7 @@ function GroupCumulativeChart({
             height={height}
             viewBox={`0 0 ${width} ${height}`}
             preserveAspectRatio="xMinYMid meet"
-            className="block h-[300px] sm:h-[330px]"
+            className="block w-max min-w-full h-auto"
           >
             {[0, 0.25, 0.5, 0.75, 1].map((t) => {
               const v = Math.round(maxY * t);
