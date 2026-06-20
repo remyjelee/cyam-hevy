@@ -151,16 +151,8 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
             <span className="block text-flame">Hevy Challenge</span>
           </h1>
 
-          <div className="mt-5 flex justify-center">
-            <div className="relative min-w-[210px] sm:min-w-[260px] px-7 py-4 rounded-2xl border border-flame/40 bg-gradient-to-b from-flame/16 via-flame/8 to-transparent text-center">
-              <div className="absolute inset-0 rounded-2xl pointer-events-none shadow-[0_0_24px_rgba(255,117,57,0.13)]" />
-              <div className="relative text-[10px] uppercase tracking-[0.2em] text-muted">
-                Pool
-              </div>
-              <div className="relative mt-2 font-display text-[clamp(2.7rem,10.5vw,4.6rem)] leading-[0.88] text-flame [text-shadow:0_0_18px_rgba(255,117,57,0.2)]">
-                ${data.total_pool}
-              </div>
-            </div>
+          <div className="mt-6 flex justify-center">
+            <Stat label="Pool" value={`$${data.total_pool}`} accent />
           </div>
 
           {/* Days remaining + progress bar */}
@@ -357,6 +349,43 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
             background-position: 100% 50%;
           }
         }
+
+        .pool-stat-sheen {
+          position: relative;
+          overflow: hidden;
+          isolation: isolate;
+        }
+
+        .pool-stat-sheen::after {
+          content: '';
+          position: absolute;
+          top: -120%;
+          bottom: -120%;
+          left: -36%;
+          width: 24%;
+          transform: rotate(18deg) translateX(-220%);
+          background: linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0),
+            rgba(255, 210, 160, 0.2),
+            rgba(255, 255, 255, 0)
+          );
+          pointer-events: none;
+          animation: poolSheen 7.5s ease-in-out infinite;
+        }
+
+        @keyframes poolSheen {
+          0%,
+          82% {
+            transform: rotate(18deg) translateX(-220%);
+          }
+          92% {
+            transform: rotate(18deg) translateX(420%);
+          }
+          100% {
+            transform: rotate(18deg) translateX(420%);
+          }
+        }
       `}</style>
 
       {selectedUser && (
@@ -381,6 +410,32 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
 function formatPenaltyUnits(amount: number): string {
   const units = amount / 10;
   return Number.isInteger(units) ? `-${units}` : `-${units.toFixed(1)}`;
+}
+
+// =============================================================================
+function Stat({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+}) {
+  return (
+    <div
+      className={`px-3 py-2 rounded-md border ${
+        accent
+          ? 'border-flame/40 bg-flame/10 text-flame pool-stat-sheen'
+          : 'border-line bg-surface text-bone'
+      }`}
+    >
+      <div className="text-[9px] uppercase tracking-widest text-muted">
+        {label}
+      </div>
+      <div className="font-display text-lg leading-none mt-0.5">{value}</div>
+    </div>
+  );
 }
 
 // =============================================================================
