@@ -174,6 +174,31 @@ export async function syncUser(
 }
 
 /**
+ * Whether the user still has a heart to spend, and hasn't already had one
+ * applied to this specific week. Mirrors the `user_hearts_remaining` view and
+ * the per-week guard used by the manual admin endpoints.
+ */
+async function heartAvailableForWeek(
+  db: SupabaseClient,
+  userId: string,
+  weekStart: string,
+  config: ChallengeConfig,
+): Promise<boolean> {
+  const { data: logs } = await db
+    .from('heart_log')
+    .select('action, week_start')
+    .eq('user_id', userId);
+  const rows = (logs ?? []) as Array<{ action: string; week_start: string }>;
+  const used = rows.filter((r) => r.action === 'used').length;
+  const refunded = rows.filter((r) => r.action === 'refund').length;
+  const remaining = config.hearts_per_user - used + refunded;
+  const netThisWeek = rows
+    .filter((r) => r.week_start === weekStart)
+    .reduce((n, r) => n + (r.action === 'used' ? 1 : -1), 0);
+  return remaining > 0 && netThisWeek <= 0;
+}
+
+/**
  * Recompute weekly_results for one user/week.
  * - days_worked_out = distinct workout_dates in [weekStart, weekStart+7)
  * - finalized = true once today >= weekStart + 7 (week is in the past)
@@ -206,12 +231,43 @@ export async function recomputeWeek(
   // Read current row (if any) to preserve heart_used.
   const { data: existing } = await db
     .from('weekly_results')
-    .select('heart_used, finalized, days_worked_out, week_day_flags')
+    .select('heart_used, finalized, days_worked_out, week_day_flags, points_owed')
     .eq('user_id', userId)
     .eq('week_start', weekStart)
     .maybeSingle();
 
-  // Keep finalized weeks frozen unless source workout data actually changed.
+  const finalized = todayDateStr >= weekEndExclusive;
+  const missed = Math.max(0, config.required_days_per_week - daysWorkedOut);
+  let heartUsed = existing?.heart_used ?? false;
+
+  // Auto-consume hearts: when enabled, the moment a missed week finalizes we
+  // spend one of the user's remaining hearts to cover it instead of charging
+  // the penalty. Gated on `!existing.finalized` so it only fires on the
+  // finalization transition (never retroactively on weeks finalized earlier,
+  // and never more than once per week).
+  if (
+    config.auto_consume_hearts &&
+    finalized &&
+    !existing?.finalized &&
+    missed > 0 &&
+    !heartUsed &&
+    (await heartAvailableForWeek(db, userId, weekStart, config))
+  ) {
+    const { error: logErr } = await db.from('heart_log').insert({
+      user_id: userId,
+      week_start: weekStart,
+      action: 'used',
+    });
+    if (!logErr) heartUsed = true;
+  }
+
+  let pointsOwed = 0;
+  if (finalized && !heartUsed) {
+    pointsOwed = missed * config.deduction_per_miss;
+  }
+
+  // Keep finalized weeks frozen unless something they depend on actually
+  // changed (workout days, or the heart/penalty outcome — e.g. an admin refund).
   if (existing?.finalized) {
     const existingFlags =
       Array.isArray((existing as any).week_day_flags) &&
@@ -221,17 +277,10 @@ export async function recomputeWeek(
     const unchanged =
       (existing as any).days_worked_out === daysWorkedOut &&
       existingFlags.length === 7 &&
-      existingFlags.every((v: boolean, i: number) => v === weekDayFlags[i]);
+      existingFlags.every((v: boolean, i: number) => v === weekDayFlags[i]) &&
+      Boolean((existing as any).heart_used) === heartUsed &&
+      ((existing as any).points_owed ?? 0) === pointsOwed;
     if (unchanged) return;
-  }
-
-  const heartUsed = existing?.heart_used ?? false;
-  const finalized = todayDateStr >= weekEndExclusive;
-
-  let pointsOwed = 0;
-  if (finalized && !heartUsed) {
-    const missed = Math.max(0, config.required_days_per_week - daysWorkedOut);
-    pointsOwed = missed * config.deduction_per_miss;
   }
 
   await db.from('weekly_results').upsert(

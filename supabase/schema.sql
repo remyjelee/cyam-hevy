@@ -17,6 +17,9 @@ create table if not exists challenge_config (
   -- Comma-separated Strava activity types we count.
   -- Hevy often posts as "WeightTraining"; we also include "Run" and "Workout".
   counted_activity_types text not null default 'WeightTraining,Run,Workout',
+  -- When true, a missed week auto-spends one of the user's remaining hearts
+  -- (instead of charging the penalty) at finalization. Toggled from /admin.
+  auto_consume_hearts boolean not null default false,
   constraint singleton check (id = 1)
 );
 

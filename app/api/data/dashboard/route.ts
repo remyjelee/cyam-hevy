@@ -145,6 +145,7 @@ function mockDashboard(req: NextRequest): DashboardData {
     required_days_per_week: mockConfig.required_days_per_week,
     hearts_per_user: mockConfig.hearts_per_user,
     deduction_per_miss: mockConfig.deduction_per_miss,
+    auto_consume_hearts: false,
     last_synced_at: new Date().toISOString(),
     total_pool: users.reduce((sum, u) => sum + u.total_owed, 0),
     chart_weeks: allWeekStarts.map((ws, idx) => ({
@@ -231,6 +232,7 @@ export async function GET(req: NextRequest) {
       required_days_per_week: config.required_days_per_week,
       hearts_per_user: config.hearts_per_user,
       deduction_per_miss: config.deduction_per_miss,
+      auto_consume_hearts: config.auto_consume_hearts ?? false,
       last_synced_at: null,
       total_pool: 0,
       chart_weeks: [],
@@ -477,6 +479,7 @@ export async function GET(req: NextRequest) {
     required_days_per_week: config.required_days_per_week,
     hearts_per_user: config.hearts_per_user,
     deduction_per_miss: config.deduction_per_miss,
+    auto_consume_hearts: config.auto_consume_hearts ?? false,
     last_synced_at: lastSync?.[0]?.computed_at ?? null,
     total_pool: totalPool,
     chart_weeks: allWeekStarts.map((ws, idx) => ({

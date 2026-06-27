@@ -10,6 +10,9 @@ export interface ChallengeConfig {
   deduction_per_miss: number;
   hearts_per_user: number;
   counted_activity_types: string; // comma-separated
+  // When true, finalizing a missed week auto-spends a remaining heart instead
+  // of charging the penalty.
+  auto_consume_hearts: boolean;
 }
 
 export interface User {
@@ -90,6 +93,8 @@ export interface DashboardData {
   required_days_per_week: number;
   hearts_per_user: number;
   deduction_per_miss: number;
+  // Whether missed weeks auto-spend a heart instead of penalizing (admin toggle).
+  auto_consume_hearts: boolean;
   // ISO timestamp of when the data was last refreshed by cron
   last_synced_at: string | null;
   // total $ pool across all users

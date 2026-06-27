@@ -125,6 +125,38 @@ export default function AdminPage() {
         </button>
       </div>
 
+      <div className="mb-6 p-4 rounded-xl border border-line bg-surface flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <div className="font-display text-lg uppercase">Auto-spend hearts</div>
+          <p className="text-xs text-muted mt-0.5">
+            When a week finalizes short, spend a remaining heart instead of
+            charging the penalty.
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={data.auto_consume_hearts}
+          disabled={busy === '/api/admin/set-auto-consume'}
+          onClick={() =>
+            adminFetch('/api/admin/set-auto-consume', {
+              enabled: !data.auto_consume_hearts,
+            })
+          }
+          className={`relative shrink-0 inline-flex h-7 w-12 items-center rounded-full border transition-colors disabled:opacity-50 ${
+            data.auto_consume_hearts
+              ? 'bg-flame/80 border-flame'
+              : 'bg-elevated border-line'
+          }`}
+        >
+          <span
+            className={`inline-block h-5 w-5 transform rounded-full bg-bone transition-transform ${
+              data.auto_consume_hearts ? 'translate-x-6' : 'translate-x-1'
+            }`}
+          />
+        </button>
+      </div>
+
       {message && (
         <div className="mb-4 p-3 rounded-md border border-line bg-surface text-sm">
           {message}
