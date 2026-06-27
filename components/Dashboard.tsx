@@ -1013,235 +1013,7 @@ function GroupCumulativeChart({
     ...chartRows.flatMap((row) => seriesFor(row)),
   );
 
-  function ChartSurface() {
-    const height = 356;
-    const xStep = 74;
-    const padding = { top: 20, right: 8, bottom: 44, left: 40 };
-    const baseWidth =
-      padding.left +
-      padding.right +
-      Math.max(0, weeks.length - 1) * xStep;
-    const viewportRef = useRef<HTMLDivElement | null>(null);
-    const [viewportWidth, setViewportWidth] = useState(0);
-
-    useEffect(() => {
-      const el = viewportRef.current;
-      if (!el) return;
-      const update = () => setViewportWidth(el.clientWidth);
-      update();
-      const ro = new ResizeObserver(update);
-      ro.observe(el);
-      return () => ro.disconnect();
-    }, []);
-
-    const width = Math.max(baseWidth, viewportWidth || 0);
-    const innerW = Math.max(1, width - padding.left - padding.right);
-    const innerH = height - padding.top - padding.bottom;
-    const step = weeks.length > 1 ? innerW / (weeks.length - 1) : innerW;
-
-    const x = (index: number) =>
-      padding.left +
-      (weeks.length <= 1 ? innerW / 2 : (index / (weeks.length - 1)) * innerW);
-    const y = (value: number) => padding.top + innerH - (value / maxY) * innerH;
-
-    const yOffsetPxByUserWeek = new Map<string, number[]>();
-    for (let w = 0; w < weeks.length; w += 1) {
-      const buckets = new Map<number, string[]>();
-      for (const row of chartRows) {
-        const val = seriesFor(row)[w] ?? 0;
-        const arr = buckets.get(val) ?? [];
-        arr.push(row.user.id);
-        buckets.set(val, arr);
-      }
-      for (const ids of buckets.values()) {
-        if (ids.length <= 1) continue;
-        ids.forEach((id, idx) => {
-          const centered = idx - (ids.length - 1) / 2;
-          const offsets = yOffsetPxByUserWeek.get(id) ?? Array(weeks.length).fill(0);
-          offsets[w] = centered * (focusUserId ? 1.4 : 2.2);
-          yOffsetPxByUserWeek.set(id, offsets);
-        });
-      }
-    }
-
-    const activeWeek = weeks[activeWeekIdx];
-    const activeRows = chartRows
-      .map((row) => ({
-        user: row.user,
-        value: seriesFor(row)[activeWeekIdx] ?? 0,
-      }))
-      .sort((a, b) => b.value - a.value);
-
-    return (
-      <>
-        <div ref={viewportRef} className="overflow-x-auto pb-1">
-          <svg
-            width={width}
-            height={height}
-            viewBox={`0 0 ${width} ${height}`}
-            preserveAspectRatio="xMinYMid meet"
-            className="block w-max min-w-full h-auto"
-          >
-            {[0, 0.25, 0.5, 0.75, 1].map((t) => {
-              const v = Math.round(maxY * t);
-              const yy = y(v);
-              return (
-                <g key={t}>
-                  <line
-                    x1={padding.left}
-                    y1={yy}
-                    x2={width - padding.right}
-                    y2={yy}
-                    stroke="rgba(122,122,122,0.22)"
-                    strokeDasharray="3 4"
-                  />
-                  <text
-                    x={6}
-                    y={yy + 4}
-                    fill="#7A7A7A"
-                    fontSize="11"
-                    fontFamily="JetBrains Mono, monospace"
-                  >
-                    {v}
-                  </text>
-                </g>
-              );
-            })}
-
-            {weeks.map((w, idx) => (
-              <g key={w.week_start}>
-                <line
-                  x1={x(idx)}
-                  y1={padding.top}
-                  x2={x(idx)}
-                  y2={height - padding.bottom}
-                  stroke={
-                    idx === activeWeekIdx
-                      ? 'rgba(245,242,234,0.25)'
-                      : 'rgba(122,122,122,0.14)'
-                  }
-                />
-                <text
-                  x={x(idx)}
-                  y={height - 9}
-                  textAnchor="middle"
-                  fill={idx === activeWeekIdx ? '#F5F2EA' : '#7A7A7A'}
-                  fontSize="10.5"
-                  fontFamily="JetBrains Mono, monospace"
-                  className="cursor-pointer select-none"
-                  onClick={() => setActiveWeekIdx(idx)}
-                  onMouseEnter={() => setActiveWeekIdx(idx)}
-                >
-                  W{w.week_number}
-                </text>
-              </g>
-            ))}
-
-            {chartRows.map((row) => {
-              const points = weeks.map((_, idx) => {
-                const baseY = y(seriesFor(row)[idx] ?? 0);
-                const yOffset = yOffsetPxByUserWeek.get(row.user.id)?.[idx] ?? 0;
-                return `${x(idx)},${baseY + yOffset}`;
-              });
-              const focused = !focusUserId || row.user.id === focusUserId;
-              return (
-                <polyline
-                  key={row.user.id}
-                  fill="none"
-                  stroke={withReadableAlpha(row.user.display_color ?? '#F5F2EA', focused ? 0.92 : 0.22)}
-                  strokeWidth={focused ? 2.35 : 1.1}
-                  points={points.join(' ')}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              );
-            })}
-
-            {chartRows.map((row) => {
-              const focused = !focusUserId || row.user.id === focusUserId;
-              const value = seriesFor(row)[activeWeekIdx] ?? 0;
-              const yOffset = yOffsetPxByUserWeek.get(row.user.id)?.[activeWeekIdx] ?? 0;
-              return (
-                <circle
-                  key={`${row.user.id}-${activeWeekIdx}`}
-                  cx={x(activeWeekIdx)}
-                  cy={y(value) + yOffset}
-                  r={focused ? 3.5 : 2.5}
-                  fill={withReadableAlpha(row.user.display_color ?? '#F5F2EA', focused ? 0.95 : 0.48)}
-                  stroke="rgba(16,16,16,0.7)"
-                  strokeWidth="1"
-                />
-              );
-            })}
-
-            {weeks.map((_, idx) => (
-              <rect
-                key={`hit-${idx}`}
-                x={x(idx) - step / 2}
-                y={padding.top}
-                width={step}
-                height={innerH}
-                fill="transparent"
-                onMouseEnter={() => setActiveWeekIdx(idx)}
-                onMouseMove={() => setActiveWeekIdx(idx)}
-                onClick={() => setActiveWeekIdx(idx)}
-              />
-            ))}
-          </svg>
-        </div>
-
-        {activeWeek && (
-          <div className="mt-3 rounded-md border border-line bg-elevated/50 p-2.5 sm:p-3">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <div className="text-[10px] sm:text-[11px] uppercase tracking-[0.14em] text-muted">
-                Week {activeWeek.week_number} · {shortWeekDate(activeWeek.week_start)}
-              </div>
-              <div className="text-[10px] sm:text-[11px] uppercase tracking-[0.14em] text-muted">
-                {hasTappedName ? (metric === 'weekly' ? 'Weekly days' : 'Cumulative days') : 'Tap a name'}
-              </div>
-            </div>
-            <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-x-2 gap-y-1.5">
-              {activeRows.map((row) => {
-                const focused = !focusUserId || row.user.id === focusUserId;
-                return (
-                  <button
-                    type="button"
-                    key={row.user.id}
-                    onClick={() => {
-                      setHasTappedName(true);
-                      setFocusUserId((prev) => (prev === row.user.id ? null : row.user.id));
-                    }}
-                    className={`inline-flex items-center justify-between gap-2 rounded-sm border px-2 py-1 text-left ${
-                      focused ? 'border-line bg-surface/80' : 'border-line/60 bg-surface/40 opacity-70'
-                    }`}
-                    title="Tap to isolate this line"
-                  >
-                    <span className="inline-flex items-center gap-1.5 min-w-0">
-                      <span
-                        className="w-2.5 h-2.5 rounded-full shrink-0"
-                        style={{
-                          backgroundColor: withReadableAlpha(
-                            row.user.display_color ?? '#F5F2EA',
-                            0.9,
-                          ),
-                        }}
-                      />
-                      <span className="font-pixel normal-case tracking-normal leading-none text-[8px] sm:text-[9px] text-bone/90 truncate">
-                        {row.user.display_name}
-                      </span>
-                    </span>
-                    <span className="font-mono text-[10px] text-bone shrink-0">
-                      {row.value}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </>
-    );
-  }
+  const { max: niceMax, ticks: yTicks } = niceScale(maxY);
 
   return (
     <div className="mx-[-10px] sm:mx-[-14px]">
@@ -1253,8 +1025,8 @@ function GroupCumulativeChart({
               onClick={() => setMetric('cumulative')}
               className={`px-2 py-1 rounded-md border text-[10px] uppercase tracking-widest ${
                 metric === 'cumulative'
-                  ? 'border-flame/45 bg-flame/10 text-flame'
-                  : 'border-line bg-elevated text-muted hover:text-bone'
+                  ? 'border-line bg-elevated text-bone'
+                  : 'border-line bg-transparent text-muted hover:text-bone'
               }`}
             >
               Cumulative
@@ -1264,8 +1036,8 @@ function GroupCumulativeChart({
               onClick={() => setMetric('weekly')}
               className={`px-2 py-1 rounded-md border text-[10px] uppercase tracking-widest ${
                 metric === 'weekly'
-                  ? 'border-flame/45 bg-flame/10 text-flame'
-                  : 'border-line bg-elevated text-muted hover:text-bone'
+                  ? 'border-line bg-elevated text-bone'
+                  : 'border-line bg-transparent text-muted hover:text-bone'
               }`}
             >
               Weekly
@@ -1273,7 +1045,19 @@ function GroupCumulativeChart({
           </div>
         </div>
 
-        <ChartSurface />
+        <ChartSurface
+          weeks={weeks}
+          chartRows={chartRows}
+          metric={metric}
+          niceMax={niceMax}
+          yTicks={yTicks}
+          activeWeekIdx={activeWeekIdx}
+          setActiveWeekIdx={setActiveWeekIdx}
+          focusUserId={focusUserId}
+          setFocusUserId={setFocusUserId}
+          hasTappedName={hasTappedName}
+          setHasTappedName={setHasTappedName}
+        />
 
         {weeks.length > 5 && (
           <p className="mt-2 px-1 text-[10px] uppercase tracking-[0.14em] text-muted">
@@ -1282,6 +1066,293 @@ function GroupCumulativeChart({
         )}
       </div>
     </div>
+  );
+}
+
+type ChartRow = {
+  user: DashboardUser;
+  cumulative: number[];
+  weekly: number[];
+};
+
+function niceScale(rawMax: number): { max: number; ticks: number[] } {
+  const max = Math.max(1, Math.ceil(rawMax));
+  const steps = [1, 2, 5, 10, 20, 25, 50, 100];
+  const targetTicks = 4;
+  const rawStep = max / targetTicks;
+  let step = steps[steps.length - 1];
+  for (const s of steps) {
+    if (s >= rawStep) {
+      step = s;
+      break;
+    }
+  }
+  const niceMax = Math.ceil(max / step) * step;
+  const ticks: number[] = [];
+  for (let v = 0; v <= niceMax + 1e-9; v += step) ticks.push(v);
+  return { max: niceMax, ticks };
+}
+
+function ChartSurface({
+  weeks,
+  chartRows,
+  metric,
+  niceMax,
+  yTicks,
+  activeWeekIdx,
+  setActiveWeekIdx,
+  focusUserId,
+  setFocusUserId,
+  hasTappedName,
+  setHasTappedName,
+}: {
+  weeks: Array<{ week_start: string; week_number: number }>;
+  chartRows: ChartRow[];
+  metric: 'cumulative' | 'weekly';
+  niceMax: number;
+  yTicks: number[];
+  activeWeekIdx: number;
+  setActiveWeekIdx: (idx: number) => void;
+  focusUserId: string | null;
+  setFocusUserId: (updater: (prev: string | null) => string | null) => void;
+  hasTappedName: boolean;
+  setHasTappedName: (value: boolean) => void;
+}) {
+  const height = 356;
+  const xStep = 74;
+  const padding = { top: 20, right: 8, bottom: 44, left: 40 };
+  const baseWidth =
+    padding.left +
+    padding.right +
+    Math.max(0, weeks.length - 1) * xStep;
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const [viewportWidth, setViewportWidth] = useState(0);
+
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+    const update = () => setViewportWidth(el.clientWidth);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const seriesFor = (row: ChartRow) =>
+    metric === 'weekly' ? row.weekly : row.cumulative;
+
+  const width = Math.max(baseWidth, viewportWidth || 0);
+  const innerW = Math.max(1, width - padding.left - padding.right);
+  const innerH = height - padding.top - padding.bottom;
+  const step = weeks.length > 1 ? innerW / (weeks.length - 1) : innerW;
+
+  const x = (index: number) =>
+    padding.left +
+    (weeks.length <= 1 ? innerW / 2 : (index / (weeks.length - 1)) * innerW);
+  const y = (value: number) => padding.top + innerH - (value / niceMax) * innerH;
+
+  const yOffsetPxByUserWeek = new Map<string, number[]>();
+  for (let w = 0; w < weeks.length; w += 1) {
+    const buckets = new Map<number, string[]>();
+    for (const row of chartRows) {
+      const val = seriesFor(row)[w] ?? 0;
+      const arr = buckets.get(val) ?? [];
+      arr.push(row.user.id);
+      buckets.set(val, arr);
+    }
+    for (const ids of buckets.values()) {
+      if (ids.length <= 1) continue;
+      ids.forEach((id, idx) => {
+        const centered = idx - (ids.length - 1) / 2;
+        const offsets = yOffsetPxByUserWeek.get(id) ?? Array(weeks.length).fill(0);
+        offsets[w] = centered * (focusUserId ? 1.4 : 2.2);
+        yOffsetPxByUserWeek.set(id, offsets);
+      });
+    }
+  }
+
+  const activeWeek = weeks[activeWeekIdx];
+  const activeRows = chartRows
+    .map((row) => ({
+      user: row.user,
+      value: seriesFor(row)[activeWeekIdx] ?? 0,
+    }))
+    .sort((a, b) => b.value - a.value);
+
+  return (
+    <>
+      <div ref={viewportRef} className="overflow-x-auto pb-1">
+        <svg
+          width={width}
+          height={height}
+          viewBox={`0 0 ${width} ${height}`}
+          preserveAspectRatio="xMinYMid meet"
+          className="block w-max min-w-full h-auto"
+        >
+          {yTicks.map((v) => {
+            const yy = y(v);
+            return (
+              <g key={v}>
+                <line
+                  x1={padding.left}
+                  y1={yy}
+                  x2={width - padding.right}
+                  y2={yy}
+                  stroke="rgba(122,122,122,0.22)"
+                  strokeDasharray="3 4"
+                />
+                <text
+                  x={6}
+                  y={yy + 4}
+                  fill="#7A7A7A"
+                  fontSize="11"
+                  fontFamily="JetBrains Mono, monospace"
+                >
+                  {v}
+                </text>
+              </g>
+            );
+          })}
+
+          {weeks.map((w, idx) => (
+            <g key={w.week_start}>
+              <line
+                x1={x(idx)}
+                y1={padding.top}
+                x2={x(idx)}
+                y2={height - padding.bottom}
+                stroke={
+                  idx === activeWeekIdx
+                    ? 'rgba(245,242,234,0.25)'
+                    : 'rgba(122,122,122,0.14)'
+                }
+              />
+              <text
+                x={x(idx)}
+                y={height - 9}
+                textAnchor="middle"
+                fill={idx === activeWeekIdx ? '#F5F2EA' : '#7A7A7A'}
+                fontSize="10.5"
+                fontFamily="JetBrains Mono, monospace"
+                className="cursor-pointer select-none"
+                onClick={() => setActiveWeekIdx(idx)}
+                onMouseEnter={() => setActiveWeekIdx(idx)}
+              >
+                W{w.week_number}
+              </text>
+            </g>
+          ))}
+
+          {chartRows.map((row) => {
+            const points = weeks.map((_, idx) => {
+              const baseY = y(seriesFor(row)[idx] ?? 0);
+              const yOffset = yOffsetPxByUserWeek.get(row.user.id)?.[idx] ?? 0;
+              return `${x(idx)},${baseY + yOffset}`;
+            });
+            const focused = !focusUserId || row.user.id === focusUserId;
+            return (
+              <polyline
+                key={row.user.id}
+                fill="none"
+                stroke={withReadableAlpha(row.user.display_color ?? '#F5F2EA', focused ? 0.92 : 0.22)}
+                strokeWidth={focused ? 2.35 : 1.1}
+                points={points.join(' ')}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            );
+          })}
+
+          {chartRows.map((row) => {
+            const focused = !focusUserId || row.user.id === focusUserId;
+            const value = seriesFor(row)[activeWeekIdx] ?? 0;
+            const yOffset = yOffsetPxByUserWeek.get(row.user.id)?.[activeWeekIdx] ?? 0;
+            return (
+              <circle
+                key={`${row.user.id}-${activeWeekIdx}`}
+                cx={x(activeWeekIdx)}
+                cy={y(value) + yOffset}
+                r={focused ? 3.5 : 2.5}
+                fill={withReadableAlpha(row.user.display_color ?? '#F5F2EA', focused ? 0.95 : 0.48)}
+                stroke="rgba(16,16,16,0.7)"
+                strokeWidth="1"
+              />
+            );
+          })}
+
+          {weeks.map((_, idx) => (
+            <rect
+              key={`hit-${idx}`}
+              x={x(idx) - step / 2}
+              y={padding.top}
+              width={step}
+              height={innerH}
+              fill="transparent"
+              onMouseEnter={() => setActiveWeekIdx(idx)}
+              onMouseMove={() => setActiveWeekIdx(idx)}
+              onClick={() => setActiveWeekIdx(idx)}
+            />
+          ))}
+        </svg>
+      </div>
+
+      {activeWeek && (
+        <div className="mt-3 rounded-md border border-line bg-elevated/50 p-2.5 sm:p-3">
+          <div className="flex items-baseline justify-between gap-2 flex-wrap">
+            <div className="text-[11px] sm:text-[12px] uppercase tracking-[0.14em] text-bone">
+              Week {activeWeek.week_number} · {shortWeekDate(activeWeek.week_start)}
+            </div>
+            <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.16em] text-muted/70">
+              {hasTappedName ? (metric === 'weekly' ? 'Weekly days' : 'Cumulative days') : 'Tap a name'}
+            </div>
+          </div>
+          <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-1">
+            {activeRows.map((row, idx) => {
+              const focused = !focusUserId || row.user.id === focusUserId;
+              const medal = ['#FFC93C', '#C7CBD1', '#C8864F'][idx];
+              return (
+                <button
+                  type="button"
+                  key={row.user.id}
+                  onClick={() => {
+                    setHasTappedName(true);
+                    setFocusUserId((prev) => (prev === row.user.id ? null : row.user.id));
+                  }}
+                  className={`flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left bg-surface/45 border border-line/50 transition-all hover:bg-surface/70 active:bg-surface/90 active:scale-[0.98] ${
+                    focused ? '' : 'opacity-45'
+                  } ${focusUserId === row.user.id ? 'bg-surface/80 border-flame/40' : ''}`}
+                  title="Tap to isolate this line"
+                >
+                  <span className="inline-flex items-center gap-2 min-w-0">
+                    <span
+                      className="font-mono text-[9px] text-muted/70 tabular-nums w-3 text-right shrink-0"
+                      style={medal ? { color: medal } : undefined}
+                    >
+                      {idx + 1}
+                    </span>
+                    <span
+                      className="w-2.5 h-2.5 rounded-full shrink-0"
+                      style={{
+                        backgroundColor: withReadableAlpha(
+                          row.user.display_color ?? '#F5F2EA',
+                          0.9,
+                        ),
+                      }}
+                    />
+                    <span className="font-pixel normal-case tracking-normal leading-none text-[8px] sm:text-[9px] text-bone/85 truncate">
+                      {row.user.display_name}
+                    </span>
+                  </span>
+                  <span className="font-mono text-[12px] font-medium text-bone tabular-nums shrink-0">
+                    {row.value}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
