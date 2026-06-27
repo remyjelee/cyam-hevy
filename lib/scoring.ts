@@ -1,6 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { ChallengeConfig } from './types';
-import { addDays, parseDate, weekStartSunday } from './dates';
+import { addDays, nowInAEST, parseDate, weekStartSunday } from './dates';
 import {
   fetchActivities,
   fetchAthleteProfile,
@@ -173,21 +173,25 @@ export async function syncUser(
   };
 }
 
-/**
- * Whether the user still has a heart to spend, and hasn't already had one
- * applied to this specific week. Mirrors the `user_hearts_remaining` view and
- * the per-week guard used by the manual admin endpoints.
- */
-async function heartAvailableForWeek(
+interface HeartState {
+  remaining: number;
+  netThisWeek: number;
+  usedThisWeek: boolean;
+}
+
+async function getHeartState(
   db: SupabaseClient,
   userId: string,
   weekStart: string,
   config: ChallengeConfig,
-): Promise<boolean> {
-  const { data: logs } = await db
+): Promise<HeartState> {
+  const { data: logs, error } = await db
     .from('heart_log')
     .select('action, week_start')
     .eq('user_id', userId);
+  if (error) {
+    throw new Error(`heart_log read failed for ${userId}: ${error.message}`);
+  }
   const rows = (logs ?? []) as Array<{ action: string; week_start: string }>;
   const used = rows.filter((r) => r.action === 'used').length;
   const refunded = rows.filter((r) => r.action === 'refund').length;
@@ -195,14 +199,29 @@ async function heartAvailableForWeek(
   const netThisWeek = rows
     .filter((r) => r.week_start === weekStart)
     .reduce((n, r) => n + (r.action === 'used' ? 1 : -1), 0);
-  return remaining > 0 && netThisWeek <= 0;
+  return {
+    remaining,
+    netThisWeek,
+    usedThisWeek: netThisWeek > 0,
+  };
+}
+
+function isFinalizedAfterGrace(weekEndExclusive: string, todayDateStr: string): boolean {
+  if (todayDateStr > weekEndExclusive) return true;
+  if (todayDateStr < weekEndExclusive) return false;
+
+  // Give Strava/Hevy until Sunday noon AEST to settle Saturday uploads before
+  // charging money or auto-spending hearts.
+  const threshold = parseDate(weekEndExclusive);
+  threshold.setUTCHours(12, 0, 0, 0);
+  return nowInAEST().getTime() >= threshold.getTime();
 }
 
 /**
  * Recompute weekly_results for one user/week.
  * - days_worked_out = distinct workout_dates in [weekStart, weekStart+7)
  * - finalized = true once today >= weekStart + 7 (week is in the past)
- * - heart_used preserved from existing row (set by admin endpoints, not here)
+ * - heart_used is derived from heart_log (the audit/source-of-truth table)
  * - points_owed = 0 if heart_used OR not finalized,
  *                 else max(0, required - days) * deduction_per_miss
  */
@@ -215,12 +234,15 @@ export async function recomputeWeek(
 ): Promise<void> {
   const weekEndExclusive = addDays(weekStart, 7);
 
-  const { data: workouts } = await db
+  const { data: workouts, error: workoutsErr } = await db
     .from('workouts')
     .select('workout_date')
     .eq('user_id', userId)
     .gte('workout_date', weekStart)
     .lt('workout_date', weekEndExclusive);
+  if (workoutsErr) {
+    throw new Error(`workouts read failed for ${userId}: ${workoutsErr.message}`);
+  }
 
   const distinctDays = new Set((workouts ?? []).map((w: any) => w.workout_date));
   const daysWorkedOut = Math.min(7, distinctDays.size);
@@ -228,17 +250,20 @@ export async function recomputeWeek(
     distinctDays.has(addDays(weekStart, i)),
   );
 
-  // Read current row (if any) to preserve heart_used.
-  const { data: existing } = await db
+  const { data: existing, error: existingErr } = await db
     .from('weekly_results')
     .select('heart_used, finalized, days_worked_out, week_day_flags, points_owed')
     .eq('user_id', userId)
     .eq('week_start', weekStart)
     .maybeSingle();
+  if (existingErr) {
+    throw new Error(`weekly_results read failed for ${userId}: ${existingErr.message}`);
+  }
 
-  const finalized = todayDateStr >= weekEndExclusive;
+  const finalized = isFinalizedAfterGrace(weekEndExclusive, todayDateStr);
   const missed = Math.max(0, config.required_days_per_week - daysWorkedOut);
-  let heartUsed = existing?.heart_used ?? false;
+  let heartState = await getHeartState(db, userId, weekStart, config);
+  let heartUsed = heartState.usedThisWeek;
 
   // Auto-consume hearts: when enabled, the moment a missed week finalizes we
   // spend one of the user's remaining hearts to cover it instead of charging
@@ -251,14 +276,19 @@ export async function recomputeWeek(
     !existing?.finalized &&
     missed > 0 &&
     !heartUsed &&
-    (await heartAvailableForWeek(db, userId, weekStart, config))
+    heartState.remaining > 0 &&
+    heartState.netThisWeek <= 0
   ) {
     const { error: logErr } = await db.from('heart_log').insert({
       user_id: userId,
       week_start: weekStart,
       action: 'used',
     });
-    if (!logErr) heartUsed = true;
+    if (logErr) {
+      throw new Error(`heart_log auto-use failed for ${userId}: ${logErr.message}`);
+    }
+    heartState = await getHeartState(db, userId, weekStart, config);
+    heartUsed = heartState.usedThisWeek;
   }
 
   let pointsOwed = 0;
@@ -283,7 +313,7 @@ export async function recomputeWeek(
     if (unchanged) return;
   }
 
-  await db.from('weekly_results').upsert(
+  const { error: upsertErr } = await db.from('weekly_results').upsert(
     {
       user_id: userId,
       week_start: weekStart,
@@ -296,4 +326,7 @@ export async function recomputeWeek(
     },
     { onConflict: 'user_id,week_start' },
   );
+  if (upsertErr) {
+    throw new Error(`weekly_results upsert failed for ${userId}: ${upsertErr.message}`);
+  }
 }

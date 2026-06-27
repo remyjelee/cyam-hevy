@@ -62,12 +62,16 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({
-    ok: true,
-    synced: results.length,
-    failed: errors.length,
-    today,
-    results,
-    errors,
-  });
+  const ok = errors.length === 0;
+  return NextResponse.json(
+    {
+      ok,
+      synced: results.length,
+      failed: errors.length,
+      today,
+      results,
+      errors,
+    },
+    { status: ok ? 200 : 500 },
+  );
 }

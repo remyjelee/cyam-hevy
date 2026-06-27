@@ -26,20 +26,7 @@ export async function POST(req: NextRequest) {
 
   const db = getServerSupabase();
 
-  // Check if a heart is actually used this week.
-  const { data: existing, error: existErr } = await db
-    .from('weekly_results')
-    .select('id, heart_used')
-    .eq('user_id', userId)
-    .eq('week_start', weekStart)
-    .maybeSingle();
-
-  if (existErr) {
-    console.error('weekly_results check failed', existErr);
-    return NextResponse.json({ error: 'db read failed' }, { status: 500 });
-  }
-
-  // Also cross-check heart_log in case weekly_results got out-of-sync.
+  // Check heart_log, the source of truth for heart usage.
   const { data: heartLogs, error: heartLogErr } = await db
     .from('heart_log')
     .select('action')
@@ -54,35 +41,12 @@ export async function POST(req: NextRequest) {
   const usedCount = (heartLogs ?? []).filter((r: any) => r.action === 'used').length;
   const refundCount = (heartLogs ?? []).filter((r: any) => r.action === 'refund').length;
   const netUsedThisWeek = usedCount - refundCount;
-  const hasHeartUsed = Boolean(existing?.heart_used) || netUsedThisWeek > 0;
 
-  if (!hasHeartUsed) {
+  if (netUsedThisWeek <= 0) {
     return NextResponse.json(
       { error: 'no heart to refund this week' },
       { status: 400 },
     );
-  }
-
-  // Update by id when row exists; otherwise insert a normalized row.
-  const updatePayload = {
-    user_id: userId,
-    week_start: weekStart,
-    heart_used: false,
-    computed_at: new Date().toISOString(),
-  };
-
-  const { error: updateErr } = existing
-    ? await db
-        .from('weekly_results')
-        .update({ heart_used: false, computed_at: new Date().toISOString() })
-        .eq('id', existing.id)
-    : await db.from('weekly_results').upsert(updatePayload, {
-        onConflict: 'user_id,week_start',
-      });
-
-  if (updateErr) {
-    console.error('weekly_results update failed', updateErr);
-    return NextResponse.json({ error: 'db update failed' }, { status: 500 });
   }
 
   // Log the refund.
@@ -94,21 +58,32 @@ export async function POST(req: NextRequest) {
 
   if (logErr) {
     console.error('heart_log insert failed', logErr);
+    return NextResponse.json({ error: 'db insert failed' }, { status: 500 });
   }
 
   // Recompute so points_owed and streak reflect the change.
-  const { data: configRow } = await db
+  const { data: configRow, error: configErr } = await db
     .from('challenge_config')
     .select('*')
     .eq('id', 1)
     .single();
-  if (configRow) {
+  if (configErr || !configRow) {
+    return NextResponse.json({ error: 'config missing' }, { status: 500 });
+  }
+
+  try {
     await recomputeWeek(
       db,
       userId,
       weekStart,
       configRow as ChallengeConfig,
       todayAEST(),
+    );
+  } catch (e: any) {
+    console.error('recompute after heart refund failed', e);
+    return NextResponse.json(
+      { error: e?.message ?? 'recompute failed' },
+      { status: 500 },
     );
   }
 

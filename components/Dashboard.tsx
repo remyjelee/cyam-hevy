@@ -301,6 +301,7 @@ export default function Dashboard({
                 todayDow={data.is_current_week ? progress.todayDow : null}
                 required={data.required_days_per_week}
                 heartsPerUser={data.hearts_per_user}
+                deductionPerMiss={data.deduction_per_miss}
                 onOpen={() => setSelectedUserId(u.id)}
               />
             ))
@@ -609,8 +610,8 @@ export default function Dashboard({
   );
 }
 
-function formatPenaltyUnits(amount: number): string {
-  const units = amount / 10;
+function formatPenaltyUnits(amount: number, deductionPerMiss: number): string {
+  const units = deductionPerMiss > 0 ? amount / deductionPerMiss : 0;
   return Number.isInteger(units) ? `-${units}` : `-${units.toFixed(1)}`;
 }
 
@@ -710,6 +711,7 @@ function UserRow({
   todayDow,
   required,
   heartsPerUser,
+  deductionPerMiss,
   onOpen,
 }: {
   user: DashboardUser;
@@ -717,11 +719,16 @@ function UserRow({
   todayDow: number | null;
   required: number;
   heartsPerUser: number;
+  deductionPerMiss: number;
   onOpen: () => void;
 }) {
   const isCurrentWeekView = todayDow !== null;
-  const isOnTrack = user.current_week_days_count >= required || user.current_week_heart_used;
   const statusHeart = user.current_week_heart_used;
+  const remainingDaysIncludingToday = todayDow === null ? 0 : 7 - todayDow;
+  const isBehind =
+    isCurrentWeekView &&
+    !statusHeart &&
+    user.current_week_days_count + remainingDaysIncludingToday < required;
 
   return (
     <article
@@ -751,7 +758,7 @@ function UserRow({
             </span>
             {user.total_owed > 0 && (
               <span className="font-mono text-flame">
-                {formatPenaltyUnits(user.total_owed)}
+                {formatPenaltyUnits(user.total_owed, deductionPerMiss)}
               </span>
             )}
           </div>
@@ -776,14 +783,12 @@ function UserRow({
           <span className="text-[13px]">♥</span>
           <span className="text-[11px]">used a heart</span>
         </div>
-      ) : (
-        <div
-          className={`mt-3 text-[13px] leading-none font-mono ${
-            isOnTrack ? 'text-live/95' : 'text-flame/90'
-          }`}
-        >
-          {isOnTrack ? '✓' : '!'}
+      ) : isBehind ? (
+        <div className="mt-3 text-[13px] leading-none font-mono text-flame/90">
+          !
         </div>
+      ) : (
+        <div className="mt-3 h-[13px]" aria-hidden="true" />
       )}
     </article>
   );

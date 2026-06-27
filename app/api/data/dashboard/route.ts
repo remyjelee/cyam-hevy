@@ -180,12 +180,13 @@ export async function GET(req: NextRequest) {
 
   const db = getServerSupabase();
 
-  const { data: configRow } = await db
+  const { data: configRow, error: configErr } = await db
     .from('challenge_config')
     .select('*')
     .eq('id', 1)
     .single();
-  if (!configRow) {
+  if (configErr || !configRow) {
+    console.error('dashboard config read failed', configErr);
     return NextResponse.json({ error: 'config missing' }, { status: 500 });
   }
   const config = configRow as ChallengeConfig;
@@ -212,11 +213,15 @@ export async function GET(req: NextRequest) {
   }
 
   // 1) All active users.
-  const { data: users } = await db
+  const { data: users, error: usersErr } = await db
     .from('users')
     .select('id, display_name, display_color, profile_image_url, created_at')
     .eq('active', true)
     .order('created_at', { ascending: true });
+  if (usersErr) {
+    console.error('dashboard users read failed', usersErr);
+    return NextResponse.json({ error: 'users read failed' }, { status: 500 });
+  }
 
   if (!users || users.length === 0) {
     return NextResponse.json<DashboardData>({
@@ -243,21 +248,29 @@ export async function GET(req: NextRequest) {
   const userIds = users.map((u: any) => u.id);
 
   // 2) Hearts remaining.
-  const { data: heartsRows } = await db
+  const { data: heartsRows, error: heartsErr } = await db
     .from('user_hearts_remaining')
     .select('user_id, hearts_remaining')
     .in('user_id', userIds);
+  if (heartsErr) {
+    console.error('dashboard hearts read failed', heartsErr);
+    return NextResponse.json({ error: 'hearts read failed' }, { status: 500 });
+  }
   const heartsByUser = new Map<string, number>(
     (heartsRows ?? []).map((r: any) => [r.user_id, r.hearts_remaining]),
   );
 
   // 3) Selected week's workouts (one row per workout).
-  const { data: weekWorkouts } = await db
+  const { data: weekWorkouts, error: weekWorkoutsErr } = await db
     .from('workouts')
     .select('user_id, workout_date')
     .in('user_id', userIds)
     .gte('workout_date', weekStart)
     .lt('workout_date', weekEndExclusive);
+  if (weekWorkoutsErr) {
+    console.error('dashboard selected workouts read failed', weekWorkoutsErr);
+    return NextResponse.json({ error: 'workouts read failed' }, { status: 500 });
+  }
 
   // Group: user_id -> Set<dateStr>
   const daysByUser = new Map<string, Set<string>>();
@@ -268,12 +281,16 @@ export async function GET(req: NextRequest) {
   }
 
   // 3b) All challenge workouts for heatmap + cumulative chart.
-  const { data: challengeWorkouts } = await db
+  const { data: challengeWorkouts, error: challengeWorkoutsErr } = await db
     .from('workouts')
     .select('user_id, workout_date')
     .in('user_id', userIds)
     .gte('workout_date', challengeStartWeek)
     .lt('workout_date', addDays(currentWeek, 7));
+  if (challengeWorkoutsErr) {
+    console.error('dashboard challenge workouts read failed', challengeWorkoutsErr);
+    return NextResponse.json({ error: 'workouts read failed' }, { status: 500 });
+  }
 
   const challengeWeekDaysByUser = new Map<string, Map<string, Set<string>>>();
   for (const w of challengeWorkouts ?? []) {
@@ -288,21 +305,29 @@ export async function GET(req: NextRequest) {
   }
 
   // 4) Heart-used flags for current week.
-  const { data: selectedWeekResults } = await db
+  const { data: selectedWeekResults, error: selectedWeekResultsErr } = await db
     .from('weekly_results')
     .select('user_id, heart_used, week_day_flags, finalized, days_worked_out')
     .in('user_id', userIds)
     .eq('week_start', weekStart);
+  if (selectedWeekResultsErr) {
+    console.error('dashboard selected results read failed', selectedWeekResultsErr);
+    return NextResponse.json({ error: 'results read failed' }, { status: 500 });
+  }
   const selectedWeekResultsByUser = new Map<string, any>(
     (selectedWeekResults ?? []).map((r: any) => [r.user_id, r]),
   );
 
   // Cross-check from heart_log in case weekly_results is stale/out-of-sync.
-  const { data: selectedWeekHeartLog } = await db
+  const { data: selectedWeekHeartLog, error: selectedWeekHeartLogErr } = await db
     .from('heart_log')
     .select('user_id, action')
     .in('user_id', userIds)
     .eq('week_start', weekStart);
+  if (selectedWeekHeartLogErr) {
+    console.error('dashboard selected heart_log read failed', selectedWeekHeartLogErr);
+    return NextResponse.json({ error: 'heart log read failed' }, { status: 500 });
+  }
 
   const heartNetByUser = new Map<string, number>();
   for (const row of selectedWeekHeartLog ?? []) {
@@ -311,12 +336,35 @@ export async function GET(req: NextRequest) {
     heartNetByUser.set(userId, (heartNetByUser.get(userId) ?? 0) + delta);
   }
 
+  const { data: allHeartLogs, error: allHeartLogsErr } = await db
+    .from('heart_log')
+    .select('user_id, week_start, action')
+    .in('user_id', userIds)
+    .gte('week_start', challengeStartWeek);
+  if (allHeartLogsErr) {
+    console.error('dashboard heart_log read failed', allHeartLogsErr);
+    return NextResponse.json({ error: 'heart log read failed' }, { status: 500 });
+  }
+
+  const heartNetByUserWeek = new Map<string, number>();
+  for (const row of allHeartLogs ?? []) {
+    const userId = (row as any).user_id as string;
+    const ws = (row as any).week_start as string;
+    const key = `${userId}:${ws}`;
+    const delta = (row as any).action === 'used' ? 1 : -1;
+    heartNetByUserWeek.set(key, (heartNetByUserWeek.get(key) ?? 0) + delta);
+  }
+
   // 5) All finalized weekly_results for streaks and total owed.
-  const { data: allResults } = await db
+  const { data: allResults, error: allResultsErr } = await db
     .from('weekly_results')
     .select('user_id, week_start, days_worked_out, week_day_flags, heart_used, finalized, points_owed')
     .in('user_id', userIds)
     .order('week_start', { ascending: false });
+  if (allResultsErr) {
+    console.error('dashboard results read failed', allResultsErr);
+    return NextResponse.json({ error: 'results read failed' }, { status: 500 });
+  }
 
   const resultsByUser = new Map<string, any[]>();
   for (const r of allResults ?? []) {
@@ -329,19 +377,7 @@ export async function GET(req: NextRequest) {
     const days = daysByUser.get(u.id) ?? new Set<string>();
     const liveDayFlags = weekDateList.map((d) => days.has(d));
     const selectedResult = selectedWeekResultsByUser.get(u.id);
-    const frozenDayFlagsCandidate =
-      Array.isArray(selectedResult?.week_day_flags) &&
-      selectedResult.week_day_flags.length === 7
-        ? selectedResult.week_day_flags.map(Boolean)
-        : liveDayFlags;
-    const frozenCount = frozenDayFlagsCandidate.filter(Boolean).length;
-    const dayFlags =
-      weekStart === currentWeek
-        ? liveDayFlags
-        : selectedResult?.finalized &&
-            frozenCount === (selectedResult?.days_worked_out ?? frozenCount)
-          ? frozenDayFlagsCandidate
-          : liveDayFlags;
+    const dayFlags = liveDayFlags;
     const daysCount = dayFlags.filter(Boolean).length;
 
     const userResults = (resultsByUser.get(u.id) ?? []).filter(
@@ -350,11 +386,34 @@ export async function GET(req: NextRequest) {
     const userResultsByWeek = new Map<string, any>(
       userResults.map((r) => [r.week_start, r]),
     );
+    const derivedWeeks = allWeekStarts.map((ws, idx) => {
+      const sourceSet = challengeWeekDaysByUser.get(u.id)?.get(ws) ?? new Set<string>();
+      const sourceFlags = weekDates(ws).map((d) => sourceSet.has(d));
+      const sourceDays = sourceFlags.filter(Boolean).length;
+      const weekRow = userResultsByWeek.get(ws);
+      const heartUsed = (heartNetByUserWeek.get(`${u.id}:${ws}`) ?? 0) > 0;
+      const finalized = Boolean(weekRow?.finalized);
+      const pointsOwed =
+        finalized && !heartUsed
+          ? Math.max(0, config.required_days_per_week - sourceDays) *
+            config.deduction_per_miss
+          : 0;
+
+      return {
+        week_start: ws,
+        week_number: idx + 1,
+        day_flags: sourceFlags,
+        days_worked_out: sourceDays,
+        heart_used: heartUsed,
+        finalized,
+        points_owed: pointsOwed,
+      };
+    });
     // Streak: walk back from most recent FINALIZED week. Stop on a "miss"
     // (didn't hit required AND no heart). Current in-progress week is included
     // only if hearts used or already at required count.
     let streak = 0;
-    const sorted = userResults.sort((a, b) =>
+    const sorted = [...derivedWeeks].sort((a, b) =>
       a.week_start < b.week_start ? 1 : -1,
     );
     for (const r of sorted) {
@@ -370,28 +429,11 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const totalOwed = userResults
+    const totalOwed = derivedWeeks
       .filter((r) => r.finalized)
       .reduce((sum, r) => sum + (r.points_owed || 0), 0);
 
-    const consistencyWeeks = allWeekStarts.map((ws, idx) => {
-      const weekRow = userResultsByWeek.get(ws);
-      const fallbackSet = challengeWeekDaysByUser.get(u.id)?.get(ws) ?? new Set<string>();
-      const fallbackFlags = weekDates(ws).map((d) => fallbackSet.has(d));
-      const rowFlags =
-        Array.isArray(weekRow?.week_day_flags) && weekRow.week_day_flags.length === 7
-          ? weekRow.week_day_flags.map(Boolean)
-          : fallbackFlags;
-      const dayFlags =
-        weekRow?.finalized && rowFlags.filter(Boolean).length === (weekRow?.days_worked_out ?? rowFlags.filter(Boolean).length)
-          ? rowFlags
-          : fallbackFlags;
-      return {
-        week_start: ws,
-        week_number: idx + 1,
-        day_flags: dayFlags,
-      };
-    });
+    const consistencyWeeks = derivedWeeks;
     const consistencyWeekCount = consistencyWeeks.length;
     const weekdayTotals = Array.from({ length: 7 }, () => 0);
     for (const w of consistencyWeeks) {
@@ -458,11 +500,15 @@ export async function GET(req: NextRequest) {
   });
 
   // 6) Last sync time = most recent computed_at across weekly_results.
-  const { data: lastSync } = await db
+  const { data: lastSync, error: lastSyncErr } = await db
     .from('weekly_results')
     .select('computed_at')
     .order('computed_at', { ascending: false })
     .limit(1);
+  if (lastSyncErr) {
+    console.error('dashboard last sync read failed', lastSyncErr);
+    return NextResponse.json({ error: 'last sync read failed' }, { status: 500 });
+  }
 
   const totalPool = dashboardUsers.reduce((s, u) => s + u.total_owed, 0);
 
