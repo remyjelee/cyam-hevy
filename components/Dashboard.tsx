@@ -1220,14 +1220,15 @@ function ChartSurface({
       value: seriesFor(row)[activeWeekIdx] ?? 0,
     }))
     .sort((a, b) => b.value - a.value);
-  // Standard competition ranking: equal values share a rank and the next
-  // distinct value skips ahead (e.g. 1, 2, 2, 4).
-  let lastRank = 0;
+  // Dense ranking: equal values share a rank and the next distinct value is
+  // the very next number, with no gaps (e.g. 1, 2, 2, 2, 3, 3, 4).
+  let rank = 0;
   let lastValue = Number.NaN;
-  const activeRows = sortedRows.map((row, idx) => {
-    const rank = row.value === lastValue ? lastRank : idx + 1;
-    lastValue = row.value;
-    lastRank = rank;
+  const activeRows = sortedRows.map((row) => {
+    if (row.value !== lastValue) {
+      rank += 1;
+      lastValue = row.value;
+    }
     return { ...row, rank };
   });
 
