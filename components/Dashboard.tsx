@@ -487,6 +487,40 @@ export default function Dashboard({
             opacity: calc(0.62 * var(--prism));
           }
         }
+
+        .flame-sprite {
+          width: 20px;
+          height: 20px;
+          display: inline-block;
+          flex: 0 0 auto;
+          background-image: url('/ui/Sheets/IdleLoop-Sheet.png');
+          background-repeat: no-repeat;
+          background-size: auto 300%;
+          background-position: -20px -18px;
+          image-rendering: pixelated;
+          transform: translateY(-1px) scale(1.14);
+          transform-origin: center;
+          animation: flameSprite 0.8s steps(1, end) infinite;
+        }
+
+        @keyframes flameSprite {
+          0%,
+          24.99% {
+            background-position: -20px -18px;
+          }
+          25%,
+          49.99% {
+            background-position: -80px -18px;
+          }
+          50%,
+          74.99% {
+            background-position: -140px -18px;
+          }
+          75%,
+          100% {
+            background-position: -200px -18px;
+          }
+        }
       `}</style>
 
       {selectedUser && (
@@ -752,7 +786,7 @@ function Avatar({ src, name }: { src: string | null; name: string }) {
 function StreakBadge({ value }: { value: number }) {
   return (
     <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-br from-orange-500/25 to-amber-400/20 border border-orange-400/45">
-      <span className="text-[14px] leading-none animate-flicker text-orange-400">🔥</span>
+      <span aria-hidden="true" className="flame-sprite" />
       <span className="font-mono text-xs font-bold text-orange-300">{value}</span>
     </div>
   );
