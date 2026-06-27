@@ -173,6 +173,15 @@ curl http://localhost:3000/api/cron/sync \
   -H "Authorization: Bearer YOUR_CRON_SECRET"
 ```
 
+For pure UI iteration (no Supabase required), enable mock mode in `.env.local`:
+
+```env
+DEV_UI_MOCK=true
+NEXT_PUBLIC_DEV_UI_MOCK=true
+```
+
+This makes `/api/data/dashboard` return deterministic mock users/weeks and disables live presence, so you can edit visuals without deploy loops.
+
 ---
 
 ## File map

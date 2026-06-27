@@ -19,6 +19,141 @@ export const dynamic = 'force-dynamic';
 // Cache aggressively at the edge so 20 friends refreshing doesn't hammer the DB.
 export const revalidate = 30;
 
+function isMockMode(): boolean {
+  return (
+    process.env.DEV_UI_MOCK === 'true' ||
+    process.env.NEXT_PUBLIC_DEV_UI_MOCK === 'true'
+  );
+}
+
+function dayFlagsFromCount(count: number, offset: number): boolean[] {
+  const positions = [1, 2, 4, 5, 6, 0, 3];
+  const flags = Array.from({ length: 7 }, () => false);
+  for (let i = 0; i < Math.max(0, Math.min(7, count)); i += 1) {
+    flags[positions[(i + offset) % 7]] = true;
+  }
+  return flags;
+}
+
+function mockDashboard(req: NextRequest): DashboardData {
+  const mockConfig = {
+    name: 'CYAM HEVY CHALLENGE',
+    start_date: '2026-05-24',
+    end_date: '2026-09-06',
+    required_days_per_week: 3,
+    hearts_per_user: 2,
+    deduction_per_miss: 10,
+  };
+  const currentWeek = currentWeekStart();
+  const weekStart = clampSelectedWeek(
+    req.nextUrl.searchParams.get('week_start'),
+    mockConfig.start_date,
+    currentWeek,
+  );
+  const challengeStartWeek = weekStartSunday(parseDate(mockConfig.start_date));
+  const weekNumber = Math.floor(daysBetween(challengeStartWeek, weekStart) / 7) + 1;
+  const allWeekStarts: string[] = [];
+  for (let w = challengeStartWeek; w <= currentWeek; w = addDays(w, 7)) {
+    allWeekStarts.push(w);
+  }
+  const weekIdx = allWeekStarts.indexOf(weekStart);
+
+  const mockPeople = [
+    { id: 'mock-amy', name: 'amy', color: '#FF7CC8', hearts: 2, offset: 0 },
+    { id: 'mock-yehoo', name: 'yehoo', color: '#9AD7FF', hearts: 1, offset: 2 },
+    { id: 'mock-justin', name: 'JUSTIN', color: '#FFD37A', hearts: 2, offset: 4 },
+    { id: 'mock-patrick', name: 'patrick', color: '#C7B7FF', hearts: 1, offset: 1 },
+  ];
+
+  const users: DashboardUser[] = mockPeople.map((p) => {
+    const weekCounts = allWeekStarts.map((_, idx) => {
+      const sample = [2, 3, 1, 4, 2, 3, 0, 4];
+      return sample[(idx + p.offset) % sample.length];
+    });
+    const selectedCount = weekCounts[Math.max(0, weekIdx)] ?? 0;
+    const currentWeekDays = dayFlagsFromCount(selectedCount, p.offset);
+
+    let cumulative = 0;
+    const chartSeries = allWeekStarts.map((ws, idx) => {
+      cumulative += weekCounts[idx] ?? 0;
+      return {
+        week_start: ws,
+        week_number: idx + 1,
+        cumulative_days: cumulative,
+      };
+    });
+
+    const weekdayTotals = Array.from({ length: 7 }, () => 0);
+    for (let idx = 0; idx < allWeekStarts.length; idx += 1) {
+      const flags = dayFlagsFromCount(weekCounts[idx] ?? 0, p.offset + idx);
+      for (let i = 0; i < 7; i += 1) {
+        if (flags[i]) weekdayTotals[i] += 1;
+      }
+    }
+    const consistencyWeekCount = Math.max(1, allWeekStarts.length);
+    const consistencyWeekdayIntensity = weekdayTotals.map(
+      (n) => n / consistencyWeekCount,
+    );
+
+    const finalizedWeeks = weekCounts.slice(0, Math.max(0, allWeekStarts.length - 1));
+    const misses = finalizedWeeks.reduce(
+      (sum, count) => sum + Math.max(0, mockConfig.required_days_per_week - count),
+      0,
+    );
+    const totalOwed = misses * mockConfig.deduction_per_miss;
+
+    return {
+      id: p.id,
+      display_name: p.name,
+      display_color: p.color,
+      profile_image_url: null,
+      hearts_remaining: p.hearts,
+      current_week_days: currentWeekDays,
+      current_week_days_count: currentWeekDays.filter(Boolean).length,
+      current_week_heart_used: false,
+      streak: 2 + (p.offset % 3),
+      total_owed: totalOwed,
+      total_days_worked_out: weekCounts.reduce((sum, n) => sum + n, 0),
+      penalty_count:
+        mockConfig.deduction_per_miss > 0
+          ? totalOwed / mockConfig.deduction_per_miss
+          : 0,
+      consistency_weekday_intensity: consistencyWeekdayIntensity,
+      consistency_week_count: consistencyWeekCount,
+      chart_series: chartSeries,
+    };
+  });
+
+  users.sort((a, b) => {
+    if (b.current_week_days_count !== a.current_week_days_count) {
+      return b.current_week_days_count - a.current_week_days_count;
+    }
+    return a.display_name.localeCompare(b.display_name);
+  });
+
+  return {
+    challenge_name: mockConfig.name,
+    start_date: mockConfig.start_date,
+    end_date: mockConfig.end_date,
+    week_start: weekStart,
+    current_week_start: currentWeek,
+    week_number: weekNumber,
+    is_current_week: weekStart === currentWeek,
+    can_go_prev_week: weekStart > challengeStartWeek,
+    can_go_next_week: weekStart < currentWeek,
+    required_days_per_week: mockConfig.required_days_per_week,
+    hearts_per_user: mockConfig.hearts_per_user,
+    deduction_per_miss: mockConfig.deduction_per_miss,
+    last_synced_at: new Date().toISOString(),
+    total_pool: users.reduce((sum, u) => sum + u.total_owed, 0),
+    chart_weeks: allWeekStarts.map((ws, idx) => ({
+      week_start: ws,
+      week_number: idx + 1,
+    })),
+    users,
+  };
+}
+
 function clampSelectedWeek(
   rawWeek: string | null,
   challengeStart: string,
@@ -33,6 +168,14 @@ function clampSelectedWeek(
 }
 
 export async function GET(req: NextRequest) {
+  if (isMockMode()) {
+    return NextResponse.json<DashboardData>(mockDashboard(req), {
+      headers: {
+        'Cache-Control': 'no-store',
+      },
+    });
+  }
+
   const db = getServerSupabase();
 
   const { data: configRow } = await db

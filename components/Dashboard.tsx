@@ -6,11 +6,13 @@ import { getBrowserSupabase } from '@/lib/supabase';
 import { addDays } from '@/lib/dates';
 
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'] as const;
+const MOCK_UI_MODE = process.env.NEXT_PUBLIC_DEV_UI_MOCK === 'true';
+const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
 
 // Compute days remaining and elapsed in browser to keep the page reactive
 // even between data fetches.
-function useChallengeProgress(startDate: string, endDate: string) {
-  const [now, setNow] = useState(() => new Date());
+function useChallengeProgress(startDate: string, endDate: string, initialNowIso: string) {
+  const [now, setNow] = useState(() => new Date(initialNowIso));
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(t);
@@ -49,13 +51,17 @@ function useChallengeProgress(startDate: string, endDate: string) {
       todayDow: aest.getUTCDay(),
       hasStarted: today >= start,
     };
-  }, [now, startDate, endDate]);
+  }, [initialNowIso, now, startDate, endDate]);
 }
 
 // Live presence: track how many people are viewing right now via Supabase channel.
 function usePresence(): number {
   const [count, setCount] = useState(0);
   useEffect(() => {
+    if (MOCK_UI_MODE) {
+      setCount(0);
+      return;
+    }
     const sb = getBrowserSupabase();
     const channel = sb.channel('dashboard-presence', {
       config: { presence: { key: crypto.randomUUID() } },
@@ -77,14 +83,20 @@ function usePresence(): number {
   return count;
 }
 
-export default function Dashboard({ initialData }: { initialData: DashboardData }) {
+export default function Dashboard({
+  initialData,
+  initialNowIso,
+}: {
+  initialData: DashboardData;
+  initialNowIso: string;
+}) {
   const [data, setData] = useState(initialData);
   const [selectedWeekStart, setSelectedWeekStart] = useState(initialData.week_start);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [weekLoading, setWeekLoading] = useState(false);
   const [poweredAssetMissing, setPoweredAssetMissing] = useState(false);
-  const progress = useChallengeProgress(data.start_date, data.end_date);
+  const progress = useChallengeProgress(data.start_date, data.end_date, initialNowIso);
   const viewers = usePresence();
   const selectedUser = data.users.find((u) => u.id === selectedUserId) ?? null;
 
@@ -275,12 +287,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
           <div className="text-[10px] text-muted uppercase tracking-widest text-center">
             Synced{' '}
             {data.last_synced_at
-              ? new Date(data.last_synced_at).toLocaleString('en-AU', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  day: '2-digit',
-                  month: 'short',
-                })
+              ? formatSyncedAt(data.last_synced_at)
               : 'never'}
           </div>
         </footer>
@@ -349,47 +356,135 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
           }
         }
 
-        .pool-stat-sheen {
+        .day-prismatic {
           position: relative;
-          overflow: hidden;
           isolation: isolate;
+          --prism: 0.8;
+          --hueshift: 0deg;
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
         }
 
-        .pool-stat-sheen::after {
+        .day-prismatic::before {
           content: '';
           position: absolute;
-          top: -120%;
-          bottom: -120%;
-          left: -36%;
-          width: 24%;
-          transform: rotate(18deg) translateX(-220%);
-          background: linear-gradient(
-            90deg,
-            rgba(255, 255, 255, 0),
-            rgba(255, 210, 160, 0.2),
-            rgba(255, 255, 255, 0)
+          inset: -2px;
+          z-index: -1;
+          border-radius: inherit;
+          background: conic-gradient(
+            from 0deg,
+            rgba(110, 231, 183, 0.85),
+            rgba(45, 212, 191, 0.7),
+            rgba(163, 255, 214, 0.8),
+            rgba(110, 231, 183, 0.85)
           );
-          opacity: 0;
+          filter: blur(4.5px) hue-rotate(var(--hueshift));
+          opacity: calc(0.25 * var(--prism));
           pointer-events: none;
-          animation: poolSheen 8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+          animation: prismBloom 6.5s ease-in-out infinite;
         }
 
-        @keyframes poolSheen {
+        .day-prismatic::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          z-index: -1;
+          border-radius: inherit;
+          padding: 1px;
+          background: conic-gradient(
+            from 140deg,
+            rgba(163, 255, 214, 0.85),
+            rgba(45, 212, 191, 0.75),
+            rgba(110, 231, 183, 0.85),
+            rgba(163, 255, 214, 0.85)
+          );
+          -webkit-mask:
+            linear-gradient(#000 0 0) content-box,
+            linear-gradient(#000 0 0);
+          -webkit-mask-composite: xor;
+          mask-composite: exclude;
+          filter: hue-rotate(var(--hueshift));
+          opacity: calc(0.7 * var(--prism));
+          pointer-events: none;
+          animation: prismRim 6.5s ease-in-out infinite;
+        }
+
+        @keyframes prismBloom {
           0%,
-          70% {
-            transform: rotate(18deg) translateX(-240%);
-            opacity: 0;
-          }
-          76% {
-            opacity: 0.55;
-          }
-          90% {
-            transform: rotate(18deg) translateX(640%);
-            opacity: 0;
-          }
           100% {
-            transform: rotate(18deg) translateX(640%);
-            opacity: 0;
+            opacity: calc(0.2 * var(--prism));
+            filter: blur(4.5px) hue-rotate(var(--hueshift));
+          }
+          50% {
+            opacity: calc(0.32 * var(--prism));
+            filter: blur(5px) hue-rotate(calc(var(--hueshift) + 18deg));
+          }
+        }
+
+        @keyframes prismRim {
+          0%,
+          100% {
+            opacity: calc(0.6 * var(--prism));
+            filter: hue-rotate(var(--hueshift)) brightness(1);
+          }
+          50% {
+            filter: hue-rotate(calc(var(--hueshift) + 18deg)) brightness(1.1);
+            opacity: calc(0.78 * var(--prism));
+          }
+        }
+
+        .day-prismatic:nth-child(7n + 1)::before,
+        .day-prismatic:nth-child(7n + 1)::after {
+          animation-delay: -0s;
+          --prism: 0.82;
+          --hueshift: 0deg;
+        }
+        .day-prismatic:nth-child(7n + 2)::before,
+        .day-prismatic:nth-child(7n + 2)::after {
+          animation-delay: -1.1s;
+          --prism: 0.74;
+          --hueshift: -6deg;
+        }
+        .day-prismatic:nth-child(7n + 3)::before,
+        .day-prismatic:nth-child(7n + 3)::after {
+          animation-delay: -2.1s;
+          --prism: 0.9;
+          --hueshift: 8deg;
+        }
+        .day-prismatic:nth-child(7n + 4)::before,
+        .day-prismatic:nth-child(7n + 4)::after {
+          animation-delay: -3.2s;
+          --prism: 0.78;
+          --hueshift: -4deg;
+        }
+        .day-prismatic:nth-child(7n + 5)::before,
+        .day-prismatic:nth-child(7n + 5)::after {
+          animation-delay: -4.2s;
+          --prism: 0.86;
+          --hueshift: 6deg;
+        }
+        .day-prismatic:nth-child(7n + 6)::before,
+        .day-prismatic:nth-child(7n + 6)::after {
+          animation-delay: -5.2s;
+          --prism: 0.76;
+          --hueshift: -8deg;
+        }
+        .day-prismatic:nth-child(7n + 7)::before,
+        .day-prismatic:nth-child(7n + 7)::after {
+          animation-delay: -6.3s;
+          --prism: 0.88;
+          --hueshift: 4deg;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .day-prismatic::before,
+          .day-prismatic::after {
+            animation: none;
+          }
+          .day-prismatic::before {
+            opacity: calc(0.22 * var(--prism));
+          }
+          .day-prismatic::after {
+            opacity: calc(0.62 * var(--prism));
           }
         }
       `}</style>
@@ -432,7 +527,7 @@ function Stat({
     <div
       className={`px-3 py-2 rounded-md border ${
         accent
-          ? 'border-flame/40 bg-flame/10 text-flame pool-stat-sheen'
+          ? 'border-flame/40 bg-flame/10 text-flame'
           : 'border-line bg-surface text-bone'
       }`}
     >
@@ -682,7 +777,7 @@ function DayCell({
   let classes = 'aspect-square rounded-md flex items-center justify-center text-[10px] font-mono uppercase border transition-all duration-200 ';
   if (done) {
     classes +=
-      'bg-live/20 border-live/60 text-live';
+      'bg-live/20 border-live/60 text-live day-prismatic';
   } else if (isPast) {
     classes += 'bg-elevated/50 border-line text-muted';
   } else if (isToday) {
@@ -838,8 +933,19 @@ function ConsistencyHeatmap({
 }
 
 function shortWeekDate(weekStart: string): string {
-  const d = new Date(`${weekStart}T00:00:00`);
-  return d.toLocaleDateString('en-AU', { day: '2-digit', month: 'short' });
+  const [_, m, d] = weekStart.split('-').map(Number);
+  const month = MONTH_SHORT[Math.max(0, Math.min(11, (m || 1) - 1))];
+  return `${String(d || 1).padStart(2, '0')} ${month}`;
+}
+
+function formatSyncedAt(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return 'never';
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = MONTH_SHORT[d.getMonth()] ?? '---';
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${hh}:${mm} ${day} ${month}`;
 }
 
 function GroupCumulativeChart({

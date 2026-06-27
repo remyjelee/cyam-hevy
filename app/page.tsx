@@ -36,5 +36,5 @@ async function getInitialData(): Promise<DashboardData> {
 
 export default async function HomePage() {
   const data = await getInitialData();
-  return <Dashboard initialData={data} />;
+  return <Dashboard initialData={data} initialNowIso={new Date().toISOString()} />;
 }
