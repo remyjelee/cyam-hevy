@@ -3,6 +3,7 @@ import { ChallengeConfig } from './types';
 import { addDays, parseDate, weekStartSunday } from './dates';
 import {
   fetchActivities,
+  fetchAthleteProfile,
   refreshAccessToken,
   dateToUnixAEST,
   StravaActivity,
@@ -105,6 +106,21 @@ export async function syncUser(
   todayDateStr: string,
 ): Promise<{ user_id: string; activities_seen: number; weeks_updated: string[] }> {
   const accessToken = await ensureAccessToken(db, user);
+
+  // Best-effort profile image refresh so stale/expired avatar URLs self-heal
+  // without requiring a full reconnect flow.
+  try {
+    const athlete = await fetchAthleteProfile(accessToken);
+    const profileImageUrl = athlete.profile_medium || athlete.profile || null;
+    if (profileImageUrl) {
+      await db
+        .from('users')
+        .update({ profile_image_url: profileImageUrl })
+        .eq('id', user.id);
+    }
+  } catch (e) {
+    console.error(`Profile refresh failed for user ${user.id}`, e);
+  }
 
   // Fetch from 10 days ago through end of today, in AEST.
   const fromDate = addDays(todayDateStr, -10);

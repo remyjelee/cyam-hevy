@@ -38,6 +38,12 @@ export interface StravaActivity {
   elapsed_time: number;
 }
 
+export interface StravaAthleteProfile {
+  id: number;
+  profile: string | null;
+  profile_medium: string | null;
+}
+
 /**
  * Build the URL we send users to so they can authorize the app.
  * Scope `activity:read_all` is required to see private activities.
@@ -129,6 +135,20 @@ export async function fetchActivities(
     if (page > 10) break; // safety: no one's logging 1000 workouts in a week
   }
   return all;
+}
+
+/** Fetch authenticated athlete profile metadata. */
+export async function fetchAthleteProfile(
+  accessToken: string,
+): Promise<StravaAthleteProfile> {
+  const res = await fetch(`${STRAVA_API}/athlete`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Strava athlete fetch failed (${res.status}): ${body}`);
+  }
+  return res.json() as Promise<StravaAthleteProfile>;
 }
 
 /** Convert a YYYY-MM-DD date string to unix seconds at AEST midnight. */
