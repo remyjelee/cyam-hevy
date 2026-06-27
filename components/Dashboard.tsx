@@ -543,13 +543,22 @@ function Stat({
 function PresenceChip({ count }: { count: number }) {
   if (count === 0) return null;
   return (
-    <div className="flex items-center gap-1.5 px-2 py-1 rounded-full border border-line bg-surface">
-      <span className="relative flex w-2 h-2">
-        <span className="absolute inset-0 rounded-full bg-live animate-ping opacity-75" />
-        <span className="relative w-2 h-2 rounded-full bg-live" />
-      </span>
-      <span className="font-mono text-[10px] text-bone">
-        {count} {count === 1 ? 'viewer' : 'viewers'}
+    <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-muted">
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        className="w-3.5 h-3.5 text-muted/85"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M2.3 12s3.6-6 9.7-6 9.7 6 9.7 6-3.6 6-9.7 6-9.7-6-9.7-6z" />
+        <circle cx="12" cy="12" r="2.6" />
+      </svg>
+      <span className="font-mono normal-case tracking-normal text-bone/85">
+        {count}
       </span>
     </div>
   );
