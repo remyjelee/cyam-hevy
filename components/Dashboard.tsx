@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { DashboardData, DashboardUser } from '@/lib/types';
 import { getBrowserSupabase } from '@/lib/supabase';
 import { addDays } from '@/lib/dates';
@@ -81,6 +81,39 @@ function usePresence(): number {
     };
   }, []);
   return count;
+}
+
+// Lock background scroll while a modal is open. Pinning the body via
+// `position: fixed` is required because `overflow: hidden` alone does not
+// stop touch scrolling behind the overlay on mobile Safari/Chrome.
+function useScrollLock() {
+  useEffect(() => {
+    const body = document.body;
+    const scrollY = window.scrollY;
+    const prev = {
+      position: body.style.position,
+      top: body.style.top,
+      left: body.style.left,
+      right: body.style.right,
+      width: body.style.width,
+      overflow: body.style.overflow,
+    };
+    body.style.position = 'fixed';
+    body.style.top = `-${scrollY}px`;
+    body.style.left = '0';
+    body.style.right = '0';
+    body.style.width = '100%';
+    body.style.overflow = 'hidden';
+    return () => {
+      body.style.position = prev.position;
+      body.style.top = prev.top;
+      body.style.left = prev.left;
+      body.style.right = prev.right;
+      body.style.width = prev.width;
+      body.style.overflow = prev.overflow;
+      window.scrollTo(0, scrollY);
+    };
+  }, []);
 }
 
 export default function Dashboard({
@@ -203,7 +236,7 @@ export default function Dashboard({
               />
             </div>
             <div className="mt-6 flex justify-center">
-              <div className="relative inline-flex flex-col items-center gap-1 px-6 py-3 bg-surface border-2 border-flame/75">
+              <div className="relative inline-flex flex-col items-center justify-center gap-1 min-w-[150px] px-6 py-3 bg-surface border-2 border-flame/75">
                 <span
                   aria-hidden="true"
                   className="pointer-events-none absolute inset-[3px] border border-flame/25"
@@ -312,6 +345,22 @@ export default function Dashboard({
       </div>
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+        /* Fill the leaderboard column-by-column (1,2,3 down the left,
+           then continue down the next column) instead of row-by-row. */
+        .leaderboard-grid {
+          display: grid;
+          grid-auto-flow: column;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          grid-template-rows: repeat(var(--rows-m), auto);
+        }
+
+        @media (min-width: 640px) {
+          .leaderboard-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-rows: repeat(var(--rows-d), auto);
+          }
+        }
 
         .days-float {
           position: relative;
@@ -600,16 +649,14 @@ function RulesModal({
   penalty: number;
   onClose: () => void;
 }) {
+  useScrollLock();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     document.addEventListener('keydown', onKey);
-    const old = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = old;
     };
   }, [onClose]);
 
@@ -618,7 +665,7 @@ function RulesModal({
       className="fixed inset-0 z-50 bg-ink/70 backdrop-blur-sm overflow-y-auto"
       onClick={onClose}
     >
-      <div className="min-h-full flex items-start sm:items-center justify-center p-4">
+      <div className="min-h-full flex items-center justify-center p-4">
         <div
           className="w-full max-w-sm rounded-2xl border border-line bg-surface p-5 my-4 sm:my-0"
           onClick={(e) => e.stopPropagation()}
@@ -675,7 +722,6 @@ function UserRow({
   const isCurrentWeekView = todayDow !== null;
   const isOnTrack = user.current_week_days_count >= required || user.current_week_heart_used;
   const statusHeart = user.current_week_heart_used;
-  const statusClass = isOnTrack ? 'text-live/95' : 'text-flame/90';
 
   return (
     <article
@@ -731,8 +777,12 @@ function UserRow({
           <span className="text-[11px]">used a heart</span>
         </div>
       ) : (
-        <div className={`mt-3 text-[13px] leading-none font-mono ${statusClass}`}>
-          {isOnTrack ? '✓' : '✕'}
+        <div
+          className={`mt-3 text-[13px] leading-none font-mono ${
+            isOnTrack ? 'text-live/95' : 'text-flame/90'
+          }`}
+        >
+          {isOnTrack ? '✓' : '!'}
         </div>
       )}
     </article>
@@ -819,16 +869,14 @@ function UserDetailModal({
   deductionPerMiss: number;
   onClose: () => void;
 }) {
+  useScrollLock();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     document.addEventListener('keydown', onKey);
-    const old = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = old;
     };
   }, [onClose]);
 
@@ -844,7 +892,7 @@ function UserDetailModal({
       className="fixed inset-0 z-50 bg-ink/70 backdrop-blur-sm overflow-y-auto"
       onClick={onClose}
     >
-      <div className="min-h-full flex items-start sm:items-center justify-center p-4">
+      <div className="min-h-full flex items-center justify-center p-4">
         <div
           className="w-full max-w-2xl rounded-2xl border border-line bg-surface p-5 sm:p-6 my-4 sm:my-0"
           onClick={(e) => e.stopPropagation()}
@@ -1058,12 +1106,6 @@ function GroupCumulativeChart({
           hasTappedName={hasTappedName}
           setHasTappedName={setHasTappedName}
         />
-
-        {weeks.length > 5 && (
-          <p className="mt-2 px-1 text-[10px] uppercase tracking-[0.14em] text-muted">
-            Swipe horizontally to see every week
-          </p>
-        )}
       </div>
     </div>
   );
@@ -1119,12 +1161,10 @@ function ChartSurface({
   setHasTappedName: (value: boolean) => void;
 }) {
   const height = 356;
-  const xStep = 74;
-  const padding = { top: 20, right: 8, bottom: 44, left: 40 };
-  const baseWidth =
-    padding.left +
-    padding.right +
-    Math.max(0, weeks.length - 1) * xStep;
+  const padding = { top: 16, right: 10, bottom: 40, left: 28 };
+  // Fallback only matters for the first paint before the viewport is measured.
+  const fallbackWidth =
+    padding.left + padding.right + Math.max(1, weeks.length - 1) * 40;
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const [viewportWidth, setViewportWidth] = useState(0);
 
@@ -1141,7 +1181,9 @@ function ChartSurface({
   const seriesFor = (row: ChartRow) =>
     metric === 'weekly' ? row.weekly : row.cumulative;
 
-  const width = Math.max(baseWidth, viewportWidth || 0);
+  // Always fit the chart to the available width so the whole grid is visible
+  // on a phone without horizontal scrolling.
+  const width = viewportWidth > 0 ? viewportWidth : fallbackWidth;
   const innerW = Math.max(1, width - padding.left - padding.right);
   const innerH = height - padding.top - padding.bottom;
   const step = weeks.length > 1 ? innerW / (weeks.length - 1) : innerW;
@@ -1172,12 +1214,22 @@ function ChartSurface({
   }
 
   const activeWeek = weeks[activeWeekIdx];
-  const activeRows = chartRows
+  const sortedRows = chartRows
     .map((row) => ({
       user: row.user,
       value: seriesFor(row)[activeWeekIdx] ?? 0,
     }))
     .sort((a, b) => b.value - a.value);
+  // Standard competition ranking: equal values share a rank and the next
+  // distinct value skips ahead (e.g. 1, 2, 2, 4).
+  let lastRank = 0;
+  let lastValue = Number.NaN;
+  const activeRows = sortedRows.map((row, idx) => {
+    const rank = row.value === lastValue ? lastRank : idx + 1;
+    lastValue = row.value;
+    lastRank = rank;
+    return { ...row, rank };
+  });
 
   return (
     <>
@@ -1306,10 +1358,18 @@ function ChartSurface({
               {hasTappedName ? (metric === 'weekly' ? 'Weekly days' : 'Cumulative days') : 'Tap a name'}
             </div>
           </div>
-          <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-1">
-            {activeRows.map((row, idx) => {
+          <div
+            className="leaderboard-grid mt-2 gap-x-3 gap-y-1"
+            style={
+              {
+                '--rows-m': Math.ceil(activeRows.length / 2),
+                '--rows-d': Math.ceil(activeRows.length / 3),
+              } as CSSProperties
+            }
+          >
+            {activeRows.map((row) => {
               const focused = !focusUserId || row.user.id === focusUserId;
-              const medal = ['#FFC93C', '#C7CBD1', '#C8864F'][idx];
+              const medal = ['#FFC93C', '#C7CBD1', '#C8864F'][row.rank - 1];
               return (
                 <button
                   type="button"
@@ -1328,7 +1388,7 @@ function ChartSurface({
                       className="font-mono text-[9px] text-muted/70 tabular-nums w-3 text-right shrink-0"
                       style={medal ? { color: medal } : undefined}
                     >
-                      {idx + 1}
+                      {row.rank}
                     </span>
                     <span
                       className="w-2.5 h-2.5 rounded-full shrink-0"
