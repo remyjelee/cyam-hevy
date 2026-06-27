@@ -153,9 +153,22 @@ export default function Dashboard({
       <div className="relative max-w-3xl mx-auto px-5 pt-6 pb-24 sm:px-8">
         {/* HEADER ----------------------------------------------------------- */}
         <header className="mb-8">
-          <div className="flex items-center justify-between mb-1 text-[11px] uppercase tracking-[0.2em] text-muted">
-            <span>{progress.hasStarted ? 'In progress' : 'Starts ' + data.start_date}</span>
-            <PresenceChip count={viewers} />
+          <div
+            className={`flex items-center gap-3 mb-1 text-[11px] uppercase tracking-[0.2em] text-muted ${
+              progress.hasStarted ? 'justify-end' : 'justify-between'
+            }`}
+          >
+            {!progress.hasStarted && <span>{'Starts ' + data.start_date}</span>}
+            <div className="inline-flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setRulesOpen(true)}
+                className="inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] uppercase tracking-[0.14em] text-muted/75 hover:text-bone/90 transition-colors"
+              >
+                View rules
+              </button>
+              <PresenceChip count={viewers} />
+            </div>
           </div>
 
           <h1 className="font-display text-[clamp(2.5rem,9vw,4.5rem)] leading-[0.92] uppercase">
@@ -189,17 +202,22 @@ export default function Dashboard({
                 style={{ width: `${progress.percent}%` }}
               />
             </div>
-            <div className="mt-1.5 flex justify-start">
-              <button
-                type="button"
-                onClick={() => setRulesOpen(true)}
-                className="inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] uppercase tracking-[0.14em] text-muted/75 hover:text-bone/90 transition-colors"
-              >
-                View rules
-              </button>
-            </div>
-            <div className="mt-2.5 flex justify-center">
-              <Stat label="Pool" value={`$${data.total_pool}`} accent />
+            <div className="mt-6 flex justify-center">
+              <div className="relative inline-flex flex-col items-center gap-1 px-6 py-3 bg-surface border-2 border-flame/75">
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-[3px] border border-flame/25"
+                />
+                <span className="relative font-pixel text-[7px] uppercase tracking-[0.4em] text-muted">
+                  Pool
+                </span>
+                <span className="relative flex items-center gap-1">
+                  <span className="font-pixel text-[1.05rem] leading-none text-gold">$</span>
+                  <span className="font-pixel text-[1.35rem] leading-none text-bone">
+                    {data.total_pool}
+                  </span>
+                </span>
+              </div>
             </div>
           </div>
         </header>
@@ -307,7 +325,7 @@ export default function Dashboard({
             transform: translateY(0);
           }
           50% {
-            transform: translateY(-8px);
+            transform: translateY(-6px);
           }
         }
 
@@ -547,33 +565,6 @@ function formatPenaltyUnits(amount: number): string {
   return Number.isInteger(units) ? `-${units}` : `-${units.toFixed(1)}`;
 }
 
-// =============================================================================
-function Stat({
-  label,
-  value,
-  accent,
-}: {
-  label: string;
-  value: string;
-  accent?: boolean;
-}) {
-  return (
-    <div
-      className={`px-3 py-2 rounded-md border ${
-        accent
-          ? 'border-flame/40 bg-flame/10 text-flame'
-          : 'border-line bg-surface text-bone'
-      }`}
-    >
-      <div className="text-[9px] uppercase tracking-widest text-muted">
-        {label}
-      </div>
-      <div className="font-display text-lg leading-none mt-0.5">{value}</div>
-    </div>
-  );
-}
-
-// =============================================================================
 function PresenceChip({ count }: { count: number }) {
   if (count === 0) return null;
   return (
@@ -624,30 +615,32 @@ function RulesModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-ink/70 backdrop-blur-sm flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-ink/70 backdrop-blur-sm overflow-y-auto"
       onClick={onClose}
     >
-      <div
-        className="w-full max-w-sm rounded-2xl border border-line bg-surface p-5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="text-[11px] uppercase tracking-[0.18em] text-muted">Rules</div>
+      <div className="min-h-full flex items-start sm:items-center justify-center p-4">
+        <div
+          className="w-full max-w-sm rounded-2xl border border-line bg-surface p-5 my-4 sm:my-0"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.18em] text-muted">Rules</div>
+            </div>
+            <button
+              onClick={onClose}
+              className="px-2 py-1 rounded-md border border-line bg-elevated text-muted hover:text-bone"
+              aria-label="Close"
+            >
+              ✕
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="px-2 py-1 rounded-md border border-line bg-elevated text-muted hover:text-bone"
-            aria-label="Close"
-          >
-            ✕
-          </button>
-        </div>
 
-        <div className="mt-4 space-y-2">
-          <RuleRow label="Required" value={`${requiredDays}× / week`} />
-          <RuleRow label="Minimum" value={`${Math.round(minSeconds / 60)} min`} />
-          <RuleRow label="Penalty" value={`-$${penalty}`} />
+          <div className="mt-4 space-y-2">
+            <RuleRow label="Required" value={`${requiredDays}× / week`} />
+            <RuleRow label="Minimum" value={`${Math.round(minSeconds / 60)} min`} />
+            <RuleRow label="Penalty" value={`-$${penalty}`} />
+          </div>
         </div>
       </div>
     </div>
@@ -681,11 +674,8 @@ function UserRow({
 }) {
   const isCurrentWeekView = todayDow !== null;
   const isOnTrack = user.current_week_days_count >= required || user.current_week_heart_used;
-  const danger =
-    isCurrentWeekView &&
-    !isOnTrack &&
-    user.current_week_days_count < required &&
-    todayDow >= 5; // Fri+ and behind = danger zone
+  const statusHeart = user.current_week_heart_used;
+  const statusClass = isOnTrack ? 'text-live/95' : 'text-flame/90';
 
   return (
     <article
@@ -713,9 +703,6 @@ function UserRow({
               <span className="text-bone">{user.current_week_days_count}</span>
               /{required} this wk
             </span>
-            {user.current_week_heart_used && (
-              <span className="text-heart font-medium">heart used</span>
-            )}
             {user.total_owed > 0 && (
               <span className="font-mono text-flame">
                 {formatPenaltyUnits(user.total_owed)}
@@ -738,26 +725,14 @@ function UserRow({
         ))}
       </div>
 
-      {isCurrentWeekView ? (
-        <>
-          {danger && !user.current_week_heart_used && (
-            <div className="mt-3 text-[10px] uppercase tracking-widest text-flame/80 font-medium">
-              Behind pace
-            </div>
-          )}
-          {isOnTrack && (
-            <div className="mt-3 text-[10px] uppercase tracking-widest text-live/90 font-medium">
-              {user.current_week_heart_used ? 'Safe — heart used' : 'On pace'}
-            </div>
-          )}
-        </>
+      {statusHeart ? (
+        <div className="mt-3 leading-none font-mono text-flame/90 inline-flex items-center gap-1.5">
+          <span className="text-[13px]">♥</span>
+          <span className="text-[11px]">used a heart</span>
+        </div>
       ) : (
-        <div
-          className={`mt-3 text-[10px] uppercase tracking-widest font-medium ${
-            isOnTrack ? 'text-live/90' : 'text-flame/85'
-          }`}
-        >
-          {isOnTrack ? 'Passed' : 'Failed'}
+        <div className={`mt-3 text-[13px] leading-none font-mono ${statusClass}`}>
+          {isOnTrack ? '✓' : '✕'}
         </div>
       )}
     </article>
@@ -866,52 +841,54 @@ function UserDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-ink/70 backdrop-blur-sm flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-ink/70 backdrop-blur-sm overflow-y-auto"
       onClick={onClose}
     >
-      <div
-        className="w-full max-w-2xl rounded-2xl border border-line bg-surface p-5 sm:p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <Avatar src={user.profile_image_url} name={user.display_name} />
-            <div>
-              <div
-                className="font-pixel text-sm sm:text-base"
-                style={{ color: user.display_color ?? '#F5F2EA' }}
-              >
-                {user.display_name}
-              </div>
-              <div className="text-[11px] uppercase tracking-[0.16em] text-muted mt-1">
-                Challenger profile
+      <div className="min-h-full flex items-start sm:items-center justify-center p-4">
+        <div
+          className="w-full max-w-2xl rounded-2xl border border-line bg-surface p-5 sm:p-6 my-4 sm:my-0"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <Avatar src={user.profile_image_url} name={user.display_name} />
+              <div>
+                <div
+                  className="font-pixel text-sm sm:text-base"
+                  style={{ color: user.display_color ?? '#F5F2EA' }}
+                >
+                  {user.display_name}
+                </div>
+                <div className="text-[11px] uppercase tracking-[0.16em] text-muted mt-1">
+                  Profile
+                </div>
               </div>
             </div>
+            <button
+              onClick={onClose}
+              className="px-2 py-1 rounded-md border border-line bg-elevated text-muted hover:text-bone"
+              aria-label="Close"
+            >
+              ✕
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="px-2 py-1 rounded-md border border-line bg-elevated text-muted hover:text-bone"
-            aria-label="Close"
-          >
-            ✕
-          </button>
-        </div>
 
-        <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <ModalStat label="Penalty" value={`-${penaltyUnits}`} />
-          <ModalStat label="Days Worked" value={String(user.total_days_worked_out)} />
-          <ModalStat label="Hearts Left" value={String(user.hearts_remaining)} />
-          <ModalStat label="Streak" value={String(user.streak)} />
-        </div>
-
-        <div className="mt-5">
-          <div className="text-[11px] uppercase tracking-[0.16em] text-muted mb-2">
-            Weekday Heatmap
+          <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <ModalStat label="Penalty" value={`-${penaltyUnits}`} />
+            <ModalStat label="Days Worked" value={String(user.total_days_worked_out)} />
+            <ModalStat label="Hearts Left" value={String(user.hearts_remaining)} />
+            <ModalStat label="Streak" value={String(user.streak)} />
           </div>
-          <ConsistencyHeatmap
-            weekdayIntensity={user.consistency_weekday_intensity}
-            weekCount={user.consistency_week_count}
-          />
+
+          <div className="mt-5">
+            <div className="text-[11px] uppercase tracking-[0.16em] text-muted mb-2">
+              Weekday Heatmap
+            </div>
+            <ConsistencyHeatmap
+              weekdayIntensity={user.consistency_weekday_intensity}
+              weekCount={user.consistency_week_count}
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -1000,6 +977,7 @@ function GroupCumulativeChart({
 }) {
   const [metric, setMetric] = useState<'cumulative' | 'weekly'>('cumulative');
   const [focusUserId, setFocusUserId] = useState<string | null>(null);
+  const [hasTappedName, setHasTappedName] = useState(false);
   const [activeWeekIdx, setActiveWeekIdx] = useState(
     weeks.length > 0 ? weeks.length - 1 : 0,
   );
@@ -1150,6 +1128,9 @@ function GroupCumulativeChart({
                   fill={idx === activeWeekIdx ? '#F5F2EA' : '#7A7A7A'}
                   fontSize="10.5"
                   fontFamily="JetBrains Mono, monospace"
+                  className="cursor-pointer select-none"
+                  onClick={() => setActiveWeekIdx(idx)}
+                  onMouseEnter={() => setActiveWeekIdx(idx)}
                 >
                   W{w.week_number}
                 </text>
@@ -1216,7 +1197,7 @@ function GroupCumulativeChart({
                 Week {activeWeek.week_number} · {shortWeekDate(activeWeek.week_start)}
               </div>
               <div className="text-[10px] sm:text-[11px] uppercase tracking-[0.14em] text-muted">
-                {metric === 'weekly' ? 'Weekly output' : 'Cumulative output'}
+                {hasTappedName ? (metric === 'weekly' ? 'Weekly days' : 'Cumulative days') : 'Tap a name'}
               </div>
             </div>
             <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-x-2 gap-y-1.5">
@@ -1226,9 +1207,10 @@ function GroupCumulativeChart({
                   <button
                     type="button"
                     key={row.user.id}
-                    onClick={() =>
-                      setFocusUserId((prev) => (prev === row.user.id ? null : row.user.id))
-                    }
+                    onClick={() => {
+                      setHasTappedName(true);
+                      setFocusUserId((prev) => (prev === row.user.id ? null : row.user.id));
+                    }}
                     className={`inline-flex items-center justify-between gap-2 rounded-sm border px-2 py-1 text-left ${
                       focused ? 'border-line bg-surface/80' : 'border-line/60 bg-surface/40 opacity-70'
                     }`}

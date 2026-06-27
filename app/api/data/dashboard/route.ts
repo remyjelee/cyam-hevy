@@ -72,6 +72,7 @@ function mockDashboard(req: NextRequest): DashboardData {
     });
     const selectedCount = weekCounts[Math.max(0, weekIdx)] ?? 0;
     const currentWeekDays = dayFlagsFromCount(selectedCount, p.offset);
+    const currentWeekHeartUsed = p.id === 'mock-patrick';
 
     let cumulative = 0;
     const chartSeries = allWeekStarts.map((ws, idx) => {
@@ -110,7 +111,7 @@ function mockDashboard(req: NextRequest): DashboardData {
       hearts_remaining: p.hearts,
       current_week_days: currentWeekDays,
       current_week_days_count: currentWeekDays.filter(Boolean).length,
-      current_week_heart_used: false,
+      current_week_heart_used: currentWeekHeartUsed,
       streak: 2 + (p.offset % 3),
       total_owed: totalOwed,
       total_days_worked_out: weekCounts.reduce((sum, n) => sum + n, 0),
