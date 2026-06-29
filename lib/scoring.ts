@@ -3,6 +3,7 @@ import { ChallengeConfig } from './types';
 import { addDays, nowInAEST, parseDate, weekStartSunday } from './dates';
 import {
   fetchActivities,
+  fetchActivityById,
   fetchAthleteProfile,
   refreshAccessToken,
   dateToUnixAEST,
@@ -79,14 +80,26 @@ function normalizeWorkoutDate(raw: string): string {
   return raw.slice(0, 10);
 }
 
+function matchesCountedType(
+  type: string,
+  sportType: string,
+  allowed: string[],
+): boolean {
+  const types = [type, sportType].filter(Boolean);
+  if (types.some((t) => allowed.includes(t))) return true;
+  // Garmin uploads often use TrailRun, VirtualRun, etc.
+  if (allowed.includes('Run')) {
+    return types.some((t) => /run$/i.test(t));
+  }
+  return false;
+}
+
 function activityCounts(
   activity: StravaActivity,
   config: ChallengeConfig,
 ): boolean {
   const allowed = config.counted_activity_types.split(',').map((s) => s.trim());
-  // Strava has both `type` (legacy) and `sport_type` (newer). Check both.
-  const matchesType =
-    allowed.includes(activity.type) || allowed.includes(activity.sport_type);
+  const matchesType = matchesCountedType(activity.type, activity.sport_type, allowed);
   // GPS glitches often crush moving_time while elapsed_time still reflects the
   // real session length — use the larger of the two for the duration check.
   const duration = Math.max(activity.moving_time, activity.elapsed_time);
@@ -100,6 +113,26 @@ function activityCounts(
  */
 function localDate(activity: StravaActivity): string {
   return activity.start_date_local.slice(0, 10);
+}
+
+/** True when Strava/Garmin GPS corruption makes start timestamps unreliable. */
+function hasCorruptGpsTimestamps(activity: StravaActivity): boolean {
+  if (!activity.flagged) return false;
+  // e.g. 42 min moving but 97 hr elapsed on a flagged run
+  return (
+    activity.elapsed_time > 24 * 3600 &&
+    activity.moving_time < activity.elapsed_time / 5
+  );
+}
+
+/**
+ * Challenge workout date in AEST. For GPS-corrupt activities, Strava's
+ * start_date_local can be days wrong; use the sync day instead (when the
+ * upload actually landed).
+ */
+function workoutDate(activity: StravaActivity, syncDateAest: string): string {
+  if (hasCorruptGpsTimestamps(activity)) return syncDateAest;
+  return localDate(activity);
 }
 
 /**
@@ -145,14 +178,13 @@ export async function syncUser(
       user_id: user.id,
       strava_activity_id: a.id,
       start_date: a.start_date,
-      workout_date: localDate(a),
+      workout_date: workoutDate(a, todayDateStr),
       moving_time: a.moving_time,
       activity_type: a.sport_type || a.type,
       name: a.name,
     }));
     await db.from('workouts').upsert(rows, {
       onConflict: 'user_id,strava_activity_id',
-      ignoreDuplicates: true,
     });
   }
 
@@ -178,6 +210,62 @@ export async function syncUser(
     user_id: user.id,
     activities_seen: activities.length,
     weeks_updated: inWindow,
+  };
+}
+
+/** Pull one Strava activity by id and score it (for list-endpoint lag / manual fixes). */
+export async function backfillStravaActivity(
+  db: SupabaseClient,
+  user: UserRow,
+  activityId: number,
+  config: ChallengeConfig,
+  todayDateStr: string,
+): Promise<{
+  ok: boolean;
+  reason?: string;
+  workout_date?: string;
+  qualifies?: boolean;
+  name?: string;
+}> {
+  const accessToken = await ensureAccessToken(db, user);
+  const activity = await fetchActivityById(accessToken, activityId);
+  const qualifies = activityCounts(activity, config);
+  const duration = Math.max(activity.moving_time, activity.elapsed_time);
+
+  if (!qualifies) {
+    return {
+      ok: false,
+      qualifies: false,
+      name: activity.name,
+      reason: `does not qualify (type=${activity.sport_type || activity.type}, duration=${duration}s, need ${config.min_workout_seconds}s)`,
+    };
+  }
+
+  const workoutDateStr = workoutDate(activity, todayDateStr);
+  const { error: upsertErr } = await db.from('workouts').upsert(
+    {
+      user_id: user.id,
+      strava_activity_id: activity.id,
+      start_date: activity.start_date,
+      workout_date: workoutDateStr,
+      moving_time: activity.moving_time,
+      activity_type: activity.sport_type || activity.type,
+      name: activity.name,
+    },
+    { onConflict: 'user_id,strava_activity_id' },
+  );
+  if (upsertErr) {
+    throw new Error(`workout upsert failed: ${upsertErr.message}`);
+  }
+
+  const weekStart = weekStartSunday(parseDate(workoutDateStr));
+  await recomputeWeek(db, user.id, weekStart, config, todayDateStr);
+
+  return {
+    ok: true,
+    qualifies: true,
+    workout_date: workoutDateStr,
+    name: activity.name,
   };
 }
 

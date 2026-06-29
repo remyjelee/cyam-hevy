@@ -791,7 +791,12 @@ function UserRow({
         ) : (
           <div className="mt-3 h-[13px]" aria-hidden="true" />
         )
-      ) : user.current_week_days_count >= required || statusHeart ? (
+      ) : statusHeart ? (
+        <div className="mt-3 leading-none font-mono text-flame/90 inline-flex items-center gap-1.5">
+          <span className="text-[13px]">♥</span>
+          <span className="text-[11px]">used a heart</span>
+        </div>
+      ) : user.current_week_days_count >= required ? (
         <div className="mt-3 text-[13px] leading-none font-mono text-live/90">
           ✓
         </div>

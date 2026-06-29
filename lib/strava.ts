@@ -36,6 +36,7 @@ export interface StravaActivity {
   start_date_local: string;  // local ISO without tz
   moving_time: number;       // seconds
   elapsed_time: number;
+  flagged?: boolean;         // true when Strava detects bad GPS/data
 }
 
 export interface StravaAthleteProfile {
@@ -104,37 +105,75 @@ export async function refreshAccessToken(creds: StravaCredentials, refreshToken:
 }
 
 /**
+ * Fetch one page of activities. Omit after/before to get the most recent uploads.
+ */
+async function fetchActivityPage(
+  accessToken: string,
+  opts: { after?: number; before?: number; page: number; perPage: number },
+): Promise<StravaActivity[]> {
+  const url = new URL(`${STRAVA_API}/athlete/activities`);
+  if (opts.after !== undefined) url.searchParams.set('after', String(opts.after));
+  if (opts.before !== undefined) url.searchParams.set('before', String(opts.before));
+  url.searchParams.set('page', String(opts.page));
+  url.searchParams.set('per_page', String(opts.perPage));
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Strava activities fetch failed (${res.status}): ${body}`);
+  }
+  return res.json() as Promise<StravaActivity[]>;
+}
+
+/**
  * Fetch activities between two unix-seconds timestamps. Paginates if needed.
  * Strava's `/athlete/activities` returns activities for the authenticated user only.
+ *
+ * Also merges the latest unfiltered page — windowed queries can omit very recent
+ * uploads due to Strava list-endpoint eventual consistency.
  */
 export async function fetchActivities(
   accessToken: string,
   afterUnix: number,
   beforeUnix: number,
 ): Promise<StravaActivity[]> {
-  const all: StravaActivity[] = [];
+  const byId = new Map<number, StravaActivity>();
+
   let page = 1;
   const perPage = 100;
-  while (true) {
-    const url = new URL(`${STRAVA_API}/athlete/activities`);
-    url.searchParams.set('after', String(afterUnix));
-    url.searchParams.set('before', String(beforeUnix));
-    url.searchParams.set('page', String(page));
-    url.searchParams.set('per_page', String(perPage));
-    const res = await fetch(url.toString(), {
-      headers: { Authorization: `Bearer ${accessToken}` },
+  while (page <= 10) {
+    const batch = await fetchActivityPage(accessToken, {
+      after: afterUnix,
+      before: beforeUnix,
+      page,
+      perPage,
     });
-    if (!res.ok) {
-      const body = await res.text();
-      throw new Error(`Strava activities fetch failed (${res.status}): ${body}`);
-    }
-    const batch = (await res.json()) as StravaActivity[];
-    all.push(...batch);
+    for (const a of batch) byId.set(a.id, a);
     if (batch.length < perPage) break;
     page += 1;
-    if (page > 10) break; // safety: no one's logging 1000 workouts in a week
   }
-  return all;
+
+  // Unfiltered recent page catches activities missing from the windowed query.
+  const recent = await fetchActivityPage(accessToken, { page: 1, perPage: 30 });
+  for (const a of recent) byId.set(a.id, a);
+
+  return Array.from(byId.values());
+}
+
+/** Fetch a single activity by id (works when list endpoint hasn't caught up yet). */
+export async function fetchActivityById(
+  accessToken: string,
+  activityId: number,
+): Promise<StravaActivity> {
+  const res = await fetch(`${STRAVA_API}/activities/${activityId}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Strava activity fetch failed (${res.status}): ${body}`);
+  }
+  return res.json() as Promise<StravaActivity>;
 }
 
 /** Fetch authenticated athlete profile metadata. */
