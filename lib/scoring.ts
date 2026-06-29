@@ -127,11 +127,18 @@ function hasCorruptGpsTimestamps(activity: StravaActivity): boolean {
 
 /**
  * Challenge workout date in AEST. For GPS-corrupt activities, Strava's
- * start_date_local can be days wrong; use the sync day instead (when the
- * upload actually landed).
+ * start_date_local can be days wrong; on first import we use the sync day
+ * (when the upload landed). On later syncs the stored date is kept — using
+ * sync day again would slide the workout forward every time sync runs.
  */
-function workoutDate(activity: StravaActivity, syncDateAest: string): string {
-  if (hasCorruptGpsTimestamps(activity)) return syncDateAest;
+function workoutDateForImport(
+  activity: StravaActivity,
+  syncDateAest: string,
+  existingWorkoutDate?: string,
+): string {
+  if (hasCorruptGpsTimestamps(activity)) {
+    return existingWorkoutDate ?? syncDateAest;
+  }
   return localDate(activity);
 }
 
@@ -171,14 +178,35 @@ export async function syncUser(
 
   const activities = await fetchActivities(accessToken, after, before);
 
-  // Persist qualifying activities; ignore conflicts (idempotent re-syncs).
+  // Persist qualifying activities; upsert updates metadata but must not slide
+  // GPS-corrupt workout dates forward on every sync.
   const qualifying = activities.filter((a) => activityCounts(a, config));
   if (qualifying.length > 0) {
+    const activityIds = qualifying.map((a) => a.id);
+    const { data: existingRows, error: existingErr } = await db
+      .from('workouts')
+      .select('strava_activity_id, workout_date')
+      .eq('user_id', user.id)
+      .in('strava_activity_id', activityIds);
+    if (existingErr) {
+      throw new Error(`workouts read failed for ${user.id}: ${existingErr.message}`);
+    }
+    const existingDateByActivityId = new Map<number, string>(
+      (existingRows ?? []).map((r: any) => [
+        r.strava_activity_id as number,
+        normalizeWorkoutDate(r.workout_date as string),
+      ]),
+    );
+
     const rows = qualifying.map((a) => ({
       user_id: user.id,
       strava_activity_id: a.id,
       start_date: a.start_date,
-      workout_date: workoutDate(a, todayDateStr),
+      workout_date: workoutDateForImport(
+        a,
+        todayDateStr,
+        existingDateByActivityId.get(a.id),
+      ),
       moving_time: a.moving_time,
       activity_type: a.sport_type || a.type,
       name: a.name,
@@ -241,7 +269,7 @@ export async function backfillStravaActivity(
     };
   }
 
-  const workoutDateStr = workoutDate(activity, todayDateStr);
+  const workoutDateStr = workoutDateForImport(activity, todayDateStr);
   const { error: upsertErr } = await db.from('workouts').upsert(
     {
       user_id: user.id,
