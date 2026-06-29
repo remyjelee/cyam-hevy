@@ -276,7 +276,7 @@ export async function GET(req: NextRequest) {
   const daysByUser = new Map<string, Set<string>>();
   for (const w of weekWorkouts ?? []) {
     const set = daysByUser.get((w as any).user_id) ?? new Set<string>();
-    set.add((w as any).workout_date);
+    set.add(String((w as any).workout_date).slice(0, 10));
     daysByUser.set((w as any).user_id, set);
   }
 
@@ -295,7 +295,7 @@ export async function GET(req: NextRequest) {
   const challengeWeekDaysByUser = new Map<string, Map<string, Set<string>>>();
   for (const w of challengeWorkouts ?? []) {
     const userId = (w as any).user_id as string;
-    const workoutDate = (w as any).workout_date as string;
+    const workoutDate = String((w as any).workout_date).slice(0, 10);
     const ws = weekStartSunday(parseDate(workoutDate));
     const byWeek = challengeWeekDaysByUser.get(userId) ?? new Map<string, Set<string>>();
     const set = byWeek.get(ws) ?? new Set<string>();

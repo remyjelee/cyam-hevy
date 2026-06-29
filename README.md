@@ -9,12 +9,12 @@ Pulls workout data from Strava (which Hevy auto-posts to). Free to host.
 ## How it works
 
 1. Each friend connects their Strava account once via a public link.
-2. A daily cron job at **3am AEST** fetches each user's recent activities, filters for `WeightTraining` and `Run` (≥30 min), and updates the dashboard.
-3. On Sundays the cron also finalizes the week that just ended and computes deductions.
+2. An **hourly GitHub Actions workflow** calls `/api/cron/sync`, fetching each user's recent activities, filtering for configured types (default: `WeightTraining`, `Run`, etc. — ≥30 min), and updating the dashboard.
+3. On **Sunday after noon AEST**, the next sync finalizes the week that just ended and computes deductions (and auto-spends a heart if that option is enabled and someone missed).
 4. The public dashboard at `/` shows everyone's current-week progress, streaks, hearts, and total $ owed.
 5. The admin page at `/admin` (password-protected) lets you claim hearts on behalf of users, manually re-sync, or remove someone.
 
-**Stack:** Next.js 14 (App Router) + Supabase + Vercel cron. All free tier.
+**Stack:** Next.js 14 (App Router) + Supabase + Vercel (hosting) + GitHub Actions (hourly sync). All free tier.
 
 ---
 
@@ -47,7 +47,7 @@ While the review is pending, you can authorize **your own** Strava account immed
    - **anon public key** → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - **service_role key** → `SUPABASE_SERVICE_ROLE_KEY` (keep secret, never commit)
 
-> **Note on free tier pausing:** Supabase pauses free projects after 7 days of inactivity. Your dashboard will be viewed multiple times a week + the daily cron pings the DB, so this won't trigger. No action needed.
+> **Note on free tier pausing:** Supabase pauses free projects after 7 days of inactivity. Your dashboard will be viewed multiple times a week + the hourly sync pings the DB, so this won't trigger. No action needed.
 
 ### 3) Push to GitHub
 
@@ -59,6 +59,15 @@ git commit -m "initial"
 gh repo create cyam-hevy-challenge --private --source=. --push
 # or use the GitHub UI to create a private repo and push manually
 ```
+
+In the GitHub repo, go to **Settings → Secrets and variables → Actions** and add:
+
+| Secret | Value |
+|--------|-------|
+| `APP_URL` | `https://<your-project>.vercel.app` (no trailing slash) — set after first Vercel deploy |
+| `CRON_SECRET` | same long random string you use in Vercel (see step 4) |
+
+These power `.github/workflows/hourly-sync.yml`, which triggers `/api/cron/sync` every hour.
 
 ### 4) Deploy on Vercel
 
@@ -74,12 +83,13 @@ gh repo create cyam-hevy-challenge --private --source=. --push
 | `STRAVA_CLIENT_SECRET` | from Strava (secret) |
 | `NEXT_PUBLIC_APP_URL` | `https://<your-project>.vercel.app` (no trailing slash) |
 | `ADMIN_PASSWORD` | a long random string you'll remember (controls /admin access) |
-| `CRON_SECRET` | another long random string (Vercel uses this to authenticate the cron call) |
+| `CRON_SECRET` | long random string — authenticates calls to `/api/cron/sync` (GitHub Actions + admin manual sync) |
 | `DATA_ENCRYPTION_KEY` | long random string used to encrypt stored Strava secrets/tokens |
 
 3. Deploy. Vercel will give you a URL like `https://cyam-hevy-challenge.vercel.app`.
 4. **Update the values you set to placeholders earlier:**
    - In **Vercel env vars**: set `NEXT_PUBLIC_APP_URL` to your real URL, then redeploy (env var changes require redeploy).
+   - In **GitHub Actions secrets**: set `APP_URL` to the same URL.
    - In **Strava** (`/settings/api`): set Authorization Callback Domain to `<your-project>.vercel.app` (just the hostname, no `https://` or path), and set Website to `https://<your-project>.vercel.app`.
 
 ### 5) Test as the first user (you)
@@ -112,8 +122,9 @@ Also remind them to keep **Hevy → Strava sync turned on** for the duration. (I
 
 ## Daily life
 
-- **Sunday morning:** the 3am AEST cron runs. By the time anyone wakes up, last week's deductions are computed and the new week's dashboard is fresh.
-- **Mid-week:** the dashboard auto-refreshes every 60 seconds in the browser. The daily cron fills in everyone's current-week days each morning. If you want it more current, hit **Run sync now** on `/admin`.
+- **Sync schedule:** GitHub Actions runs **every hour** (top of each hour UTC). In AEST that's roughly hourly throughout the day. GitHub's scheduler can be late by several minutes — don't rely on exact clock time.
+- **Sunday finalization:** The week ends Saturday night. Scoring finalizes on the **first sync after Sunday noon AEST** (typically the ~12:00–1:00pm run). By then, last week's deductions are computed and the new week's dashboard is fresh.
+- **Mid-week:** The dashboard auto-refreshes every 60 seconds in the browser (display only — it does not pull from Strava). The hourly sync fills in everyone's current-week days. For immediate updates, hit **Run sync now** on `/admin`.
 - **Using a heart:** open `/admin` before Saturday night ends. Tap **Use heart** on the friend's row. They get $0 deduction for the week, and the dashboard will show their hearts decremented.
 - **Refunding a heart:** if you misclicked, **Refund heart** on the same row reverses it.
 
@@ -128,10 +139,10 @@ Your Strava review hasn't been approved yet. Wait, or follow up at `developers@s
 Most likely: Hevy isn't syncing to Strava for that user. Have them open Hevy → Settings → Integrations → confirm Strava is connected. Then have them re-finish a recent workout (or just wait until their next one). Then hit **Run sync now** on `/admin`.
 
 **A workout is too short to count but they swear they were there 30 minutes**
-The `moving_time` field from Strava is what we filter on. Hevy reports the actual session duration. If they hit "Finish" early or paused a lot, it can come in short. There's no remedy from our side; the rule is the rule.
+We use the larger of Strava's `moving_time` and `elapsed_time` (GPS glitches often crush moving time while elapsed time is still correct). If both are under 30 minutes — e.g. they paused a lot or finished early in Hevy — it won't count. There's no manual override from the dashboard; the rule is the rule.
 
-**Cron didn't run**
-Vercel cron timing on Hobby is "anywhere within the hour." `0 17 * * *` UTC = between 17:00 and 17:59 UTC = between 3:00 and 3:59 AEST. Check Vercel → Logs → filter by `cron`. If it didn't fire at all, redeploy (env var changes require a redeploy to pick up cron schedule too).
+**Sync didn't run**
+Check GitHub → **Actions** → **Hourly Strava Sync**. The workflow runs on `0 * * * *` (every hour UTC). Runs can be delayed. You can also trigger it manually via **Run workflow**, or use **Run sync now** on `/admin`. If the workflow fails, confirm `APP_URL` and `CRON_SECRET` are set in GitHub secrets and match Vercel's `CRON_SECRET`.
 
 **Supabase project paused**
 Only happens after 7 days of zero activity. Unpause from Supabase dashboard. Won't realistically happen with friends viewing the dashboard.
@@ -191,7 +202,8 @@ supabase/schema.sql            -- run once, sets up all tables
 lib/dates.ts                   -- AEST week math (Sun→Sat)
 lib/strava.ts                  -- OAuth + activity fetch
 lib/scoring.ts                 -- the brain: sync + recompute weeks
-app/api/cron/sync/route.ts     -- daily cron entry point
+app/api/cron/sync/route.ts     -- sync entry point (hourly + manual)
+.github/workflows/hourly-sync.yml -- GitHub Actions schedule
 app/api/auth/strava/...        -- OAuth flow
 app/api/admin/...              -- heart claim, sync trigger, remove user
 app/page.tsx                   -- public dashboard (server-rendered)
@@ -199,7 +211,3 @@ components/Dashboard.tsx       -- the gamified UI
 app/admin/page.tsx             -- password-gated admin panel
 app/connect/page.tsx           -- friend onboarding page
 ```
-
----
-
-Built for one challenge. Ship it.

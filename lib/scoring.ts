@@ -74,6 +74,11 @@ async function ensureAccessToken(
  * Determine if an activity counts toward this challenge.
  * Currently: type is in counted_activity_types AND moving_time >= min_workout_seconds.
  */
+/** Normalize a Postgres `date` or ISO string to YYYY-MM-DD. */
+function normalizeWorkoutDate(raw: string): string {
+  return raw.slice(0, 10);
+}
+
 function activityCounts(
   activity: StravaActivity,
   config: ChallengeConfig,
@@ -82,7 +87,10 @@ function activityCounts(
   // Strava has both `type` (legacy) and `sport_type` (newer). Check both.
   const matchesType =
     allowed.includes(activity.type) || allowed.includes(activity.sport_type);
-  return matchesType && activity.moving_time >= config.min_workout_seconds;
+  // GPS glitches often crush moving_time while elapsed_time still reflects the
+  // real session length — use the larger of the two for the duration check.
+  const duration = Math.max(activity.moving_time, activity.elapsed_time);
+  return matchesType && duration >= config.min_workout_seconds;
 }
 
 /**
@@ -244,7 +252,9 @@ export async function recomputeWeek(
     throw new Error(`workouts read failed for ${userId}: ${workoutsErr.message}`);
   }
 
-  const distinctDays = new Set((workouts ?? []).map((w: any) => w.workout_date));
+  const distinctDays = new Set(
+    (workouts ?? []).map((w: any) => normalizeWorkoutDate(w.workout_date)),
+  );
   const daysWorkedOut = Math.min(7, distinctDays.size);
   const weekDayFlags = Array.from({ length: 7 }, (_, i) =>
     distinctDays.has(addDays(weekStart, i)),
@@ -274,6 +284,7 @@ export async function recomputeWeek(
     config.auto_consume_hearts &&
     finalized &&
     !existing?.finalized &&
+    daysWorkedOut < config.required_days_per_week &&
     missed > 0 &&
     !heartUsed &&
     heartState.remaining > 0 &&
