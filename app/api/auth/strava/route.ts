@@ -3,6 +3,7 @@ import { randomBytes } from 'crypto';
 import { buildAuthorizeUrl } from '@/lib/strava';
 import { getServerSupabase } from '@/lib/supabase';
 import { encryptSecret } from '@/lib/secrets';
+import { sanitizeChosenDisplayColor } from '@/lib/display-colors';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,14 +18,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'invalid body' }, { status: 400 });
   }
 
-  const clientId = ((body.client_id as string) || '').trim();
-  const clientSecret = ((body.client_secret as string) || '').trim();
   const name = (body.name as string) || '';
-  const color = ((body.color as string) || '').trim();
+  const rawColor = ((body.color as string) || '').trim();
+  const chosenColor = rawColor ? sanitizeChosenDisplayColor(rawColor) : null;
 
-  // If user leaves credentials blank, fall back to global env credentials.
-  const finalClientId = clientId || process.env.STRAVA_CLIENT_ID || '';
-  const finalClientSecret = clientSecret || process.env.STRAVA_CLIENT_SECRET || '';
+  const finalClientId = process.env.STRAVA_CLIENT_ID || '';
+  const finalClientSecret = process.env.STRAVA_CLIENT_SECRET || '';
 
   if (!finalClientId || !finalClientSecret) {
     return NextResponse.json(
@@ -48,7 +47,7 @@ export async function POST(req: NextRequest) {
     strava_client_id: finalClientId,
     strava_client_secret: encryptSecret(finalClientSecret),
     display_name: name,
-    display_color: color,
+    display_color: chosenColor ?? '',
   });
 
   if (insertError) {

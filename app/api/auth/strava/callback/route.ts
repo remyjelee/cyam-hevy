@@ -5,6 +5,10 @@ import { syncUser } from '@/lib/scoring';
 import { todayAEST } from '@/lib/dates';
 import { ChallengeConfig } from '@/lib/types';
 import { decryptSecret, encryptSecret } from '@/lib/secrets';
+import {
+  pickUnusedDisplayColor,
+  sanitizeChosenDisplayColor,
+} from '@/lib/display-colors';
 
 export const dynamic = 'force-dynamic';
 
@@ -90,7 +94,35 @@ export async function GET(req: NextRequest) {
   const fallbackName =
     `${tokenResponse.athlete.firstname} ${tokenResponse.athlete.lastname.charAt(0)}.`.trim();
   const displayName = (pending.display_name || '').trim() || fallbackName;
-  const displayColor = (pending.display_color || '').trim() || null;
+
+  const chosenColor = sanitizeChosenDisplayColor(pending.display_color || '');
+  let displayColor: string;
+
+  if (chosenColor) {
+    displayColor = chosenColor;
+  } else {
+    const { data: existingUser } = await db
+      .from('users')
+      .select('display_color')
+      .eq('strava_athlete_id', tokenResponse.athlete.id)
+      .maybeSingle();
+
+    const existingColor = sanitizeChosenDisplayColor(
+      (existingUser?.display_color as string) || '',
+    );
+    if (existingColor) {
+      displayColor = existingColor;
+    } else {
+      const { data: takenRows } = await db
+        .from('users')
+        .select('display_color')
+        .eq('active', true);
+      const taken = (takenRows ?? [])
+        .map((r) => r.display_color as string)
+        .filter(Boolean);
+      displayColor = pickUnusedDisplayColor(taken);
+    }
+  }
 
   // Upsert by strava_athlete_id so re-authorizing the same person is idempotent.
   const { error: upsertError } = await db.from('users').upsert(
@@ -140,6 +172,6 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.redirect(
-    `${appUrl}/connect?status=success&name=${encodeURIComponent(displayName)}`,
+    `${appUrl}/connect?status=success&name=${encodeURIComponent(displayName)}&color=${encodeURIComponent(displayColor)}`,
   );
 }

@@ -1,25 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-
-const COLOR_PRESETS = [
-  '#F5F2EA',
-  '#FF7B72',
-  '#7EE787',
-  '#79C0FF',
-  '#D2A8FF',
-  '#F2CC60',
-  '#FF9BCE',
-  '#56D4DD',
-] as const;
+import {
+  CHALLENGE_DISPLAY_COLORS,
+  isBannedDisplayColor,
+} from '@/lib/display-colors';
 
 export default function ConnectPage() {
   const [name, setName] = useState('');
-  const [color, setColor] = useState<string>(COLOR_PRESETS[0]);
-  const [clientId, setClientId] = useState('');
-  const [clientSecret, setClientSecret] = useState('');
+  const [color, setColor] = useState<string | null>(null);
+  const [colorChosen, setColorChosen] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [statusName, setStatusName] = useState<string | null>(null);
+  const [statusColor, setStatusColor] = useState<string | null>(null);
   const [connectAssetMissing, setConnectAssetMissing] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -27,6 +20,7 @@ export default function ConnectPage() {
     const params = new URLSearchParams(window.location.search);
     setStatus(params.get('status'));
     setStatusName(params.get('name'));
+    setStatusColor(params.get('color'));
   }, []);
 
   const handleConnect = async () => {
@@ -36,10 +30,8 @@ export default function ConnectPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          client_id: clientId.trim() || undefined,
-          client_secret: clientSecret.trim() || undefined,
           name: name.trim() || undefined,
-          color: color || undefined,
+          ...(colorChosen && color ? { color } : {}),
         }),
       });
       const data = await res.json();
@@ -64,7 +56,14 @@ export default function ConnectPage() {
           You&apos;re in.
         </h1>
         <p className="text-bone/80 mb-2">
-          Welcome, <span className="font-medium" style={{ color }}>{statusName}</span>.
+          Welcome,{' '}
+          <span
+            className="font-medium"
+            style={{ color: statusColor ?? undefined }}
+          >
+            {statusName}
+          </span>
+          .
         </p>
         <p className="text-sm text-muted mb-8">
           Your workouts will appear automatically.
@@ -115,12 +114,8 @@ export default function ConnectPage() {
     return (
       <Frame>
         <h1 className="font-display text-3xl uppercase mb-4">Something went wrong</h1>
-        <p className="text-muted mb-4">
+        <p className="text-muted mb-6">
           Please try again, or message the organizer.
-        </p>
-        <p className="text-muted text-sm mb-6">
-          If you created your own Strava app, check that Callback Domain is set
-          to <span className="font-mono text-bone">{typeof window !== 'undefined' ? window.location.hostname : ''}</span>.
         </p>
         <a href="/connect" className="text-flame hover:underline">
           ← Start over
@@ -158,57 +153,42 @@ export default function ConnectPage() {
 
         <label className="block">
           <span className="block text-[11px] uppercase tracking-widest text-muted mb-1.5">
-            Name color
+            Name colour <span className="normal-case tracking-normal">(optional)</span>
           </span>
+          <p className="text-[11px] text-muted mb-2">
+            Leave unselected for a random colour. White isn&apos;t available.
+          </p>
           <div className="flex items-center gap-2 flex-wrap">
-            {COLOR_PRESETS.map((preset) => (
+            {CHALLENGE_DISPLAY_COLORS.map((preset) => (
               <button
                 key={preset}
                 type="button"
-                onClick={() => setColor(preset)}
+                onClick={() => {
+                  setColor(preset);
+                  setColorChosen(true);
+                }}
                 className="w-7 h-7 rounded-full border"
                 style={{
                   backgroundColor: preset,
-                  borderColor: color === preset ? '#FC4C02' : '#3B3B3B',
+                  borderColor:
+                    colorChosen && color === preset ? '#FC4C02' : '#3B3B3B',
                 }}
-                aria-label={`Use color ${preset}`}
+                aria-label={`Use colour ${preset}`}
               />
             ))}
             <input
               type="color"
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
+              value={colorChosen && color ? color : '#79C0FF'}
+              onChange={(e) => {
+                const next = e.target.value;
+                if (isBannedDisplayColor(next)) return;
+                setColor(next);
+                setColorChosen(true);
+              }}
               className="w-10 h-8 bg-transparent border border-line rounded"
-              aria-label="Custom color"
+              aria-label="Custom colour"
             />
           </div>
-        </label>
-
-        <label className="block">
-          <span className="block text-[11px] uppercase tracking-widest text-muted mb-1.5">
-            Strava Client ID
-          </span>
-          <input
-            type="text"
-            inputMode="numeric"
-            value={clientId}
-            onChange={(e) => setClientId(e.target.value)}
-            placeholder="e.g. 123456"
-            className="w-full px-4 py-3 rounded-lg bg-elevated border border-line focus:border-flame focus:outline-none text-bone"
-          />
-        </label>
-
-        <label className="block">
-          <span className="block text-[11px] uppercase tracking-widest text-muted mb-1.5">
-            Strava Client Secret
-          </span>
-          <input
-            type="password"
-            value={clientSecret}
-            onChange={(e) => setClientSecret(e.target.value)}
-            placeholder="Paste your Client Secret"
-            className="w-full px-4 py-3 rounded-lg bg-elevated border border-line focus:border-flame focus:outline-none text-bone"
-          />
         </label>
 
         <button
@@ -239,9 +219,9 @@ export default function ConnectPage() {
         </button>
 
         <p className="text-[11px] text-muted leading-relaxed pt-2">
-          We read your activity list to count qualifying workouts. We never
-          post anything. Your Client Secret and refresh token are stored securely
-          on the server and only used by the Sunday cron.{' '}
+          We read your activity list to count qualifying workouts. We never post
+          anything. Your Strava refresh token is stored securely on the server
+          and only used to sync workouts.{' '}
           <a href="/privacy" className="underline hover:text-bone">
             Privacy
           </a>

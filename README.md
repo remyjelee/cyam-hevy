@@ -116,6 +116,8 @@ Send each friend two things:
 1. The connect link: `https://your-app.vercel.app/connect`
 2. **Critical instruction:** "On the Strava permission screen, leave the *‘View data about your activities’* checkbox ticked. If you uncheck it the app can't see your private workouts."
 
+Friends only enter a display name and colour — the organizer's Strava API app (configured in Vercel) handles the rest. No Client ID or Secret needed.
+
 Also remind them to keep **Hevy → Strava sync turned on** for the duration. (In the Hevy app: Settings → Integrations → Strava). And to not flip individual workouts to "Strava: off" when finishing a session.
 
 ---
