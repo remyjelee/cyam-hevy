@@ -58,7 +58,11 @@ export async function GET(req: NextRequest) {
       const r = await syncUser(db, user as any, config, today);
       results.push(r);
     } catch (e: any) {
-      errors.push({ user_id: (user as any).id, error: e?.message ?? String(e) });
+      errors.push({
+        user_id: (user as any).id,
+        display_name: (user as any).display_name,
+        error: e?.message ?? String(e),
+      });
     }
   }
 

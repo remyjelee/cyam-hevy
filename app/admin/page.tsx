@@ -54,7 +54,29 @@ export default function AdminPage() {
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setMessage(`Error: ${json.error || res.status}`);
+        const details =
+          Array.isArray(json.errors) && json.errors.length > 0
+            ? json.errors
+                .map(
+                  (e: { display_name?: string; user_id?: string; error?: string }) =>
+                    e.display_name
+                      ? `${e.display_name}: ${e.error}`
+                      : e.error || e.user_id,
+                )
+                .join('; ')
+            : json.error;
+        const partial =
+          typeof json.synced === 'number' && typeof json.failed === 'number'
+            ? ` (${json.synced} ok, ${json.failed} failed)`
+            : '';
+        setMessage(`Error: ${details || res.status}${partial}`);
+      } else if (json.ok === false && Array.isArray(json.errors) && json.errors.length > 0) {
+        setMessage(
+          `Partial sync: ${json.synced} ok, ${json.failed} failed — ${json.errors
+            .map((e: { error?: string }) => e.error)
+            .join('; ')}`,
+        );
+        await loadData();
       } else {
         setMessage('Done.');
         await loadData();
