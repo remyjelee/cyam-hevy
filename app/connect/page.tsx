@@ -132,10 +132,7 @@ export default function ConnectPage() {
       <h1 className="font-display text-5xl uppercase leading-none mb-4">
         Join the <span className="text-flame">Challenge</span>
       </h1>
-      <p className="text-bone/80 mb-1">3 workouts a week. 30+ minutes each.</p>
-      <p className="text-muted text-sm mb-8">
-        Miss one? -$10. The pool funds a camping trip.
-      </p>
+      <p className="text-bone/80 mb-8">3 workouts a week. 30+ minutes each.</p>
 
       <div className="space-y-3">
         <label className="block">
@@ -155,9 +152,6 @@ export default function ConnectPage() {
           <span className="block text-[11px] uppercase tracking-widest text-muted mb-1.5">
             Name colour <span className="normal-case tracking-normal">(optional)</span>
           </span>
-          <p className="text-[11px] text-muted mb-2">
-            Leave unselected for a random colour. White isn&apos;t available.
-          </p>
           <div className="flex items-center gap-2 flex-wrap">
             {CHALLENGE_DISPLAY_COLORS.map((preset) => (
               <button
