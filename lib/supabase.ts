@@ -3,6 +3,12 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 /**
  * Server-only client using the service role key.
  * NEVER import this from a Client Component. It bypasses RLS.
+ *
+ * `cache: 'no-store'` is critical: the Next.js App Router patches global
+ * `fetch` and caches GET responses by default. supabase-js issues SELECTs as
+ * GETs, so without this those reads get frozen in the Next.js Data Cache
+ * (which even persists across deployments) while writes (PATCH/POST) hit the
+ * live DB — producing stale reads + live writes. Opt every query out of caching.
  */
 export function getServerSupabase(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -12,6 +18,10 @@ export function getServerSupabase(): SupabaseClient {
   }
   return createClient(url, key, {
     auth: { persistSession: false },
+    global: {
+      fetch: (input, init) =>
+        fetch(input, { ...init, cache: 'no-store' }),
+    },
   });
 }
 
