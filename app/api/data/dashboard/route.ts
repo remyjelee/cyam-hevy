@@ -108,6 +108,7 @@ function mockDashboard(req: NextRequest): DashboardData {
       display_name: p.name,
       display_color: p.color,
       profile_image_url: null,
+      left_week_start: null,
       hearts_remaining: p.hearts,
       current_week_days: currentWeekDays,
       current_week_days_count: currentWeekDays.filter(Boolean).length,
@@ -215,7 +216,7 @@ export async function GET(req: NextRequest) {
   // 1) All active users.
   const { data: users, error: usersErr } = await db
     .from('users')
-    .select('id, display_name, display_color, profile_image_url, created_at')
+    .select('id, display_name, display_color, profile_image_url, created_at, left_week_start')
     .eq('active', true)
     .order('created_at', { ascending: true });
   if (usersErr) {
@@ -374,9 +375,22 @@ export async function GET(req: NextRequest) {
   }
 
   const dashboardUsers: DashboardUser[] = users.map((u: any) => {
-    const days = daysByUser.get(u.id) ?? new Set<string>();
+    // A member who left mid-challenge counts for every week BEFORE
+    // left_week_start and is absent from that week onward. We still return them
+    // so the chart can show the weeks they were part of; the roster hides them.
+    const leftWeekStart: string | null = u.left_week_start
+      ? String(u.left_week_start).slice(0, 10)
+      : null;
+    const participatesIn = (ws: string) => !leftWeekStart || ws < leftWeekStart;
+    const inSelectedWeek = participatesIn(weekStart);
+
+    const days = inSelectedWeek
+      ? daysByUser.get(u.id) ?? new Set<string>()
+      : new Set<string>();
     const liveDayFlags = weekDateList.map((d) => days.has(d));
-    const selectedResult = selectedWeekResultsByUser.get(u.id);
+    const selectedResult = inSelectedWeek
+      ? selectedWeekResultsByUser.get(u.id)
+      : undefined;
     const dayFlags = liveDayFlags;
     const daysCount = dayFlags.filter(Boolean).length;
 
@@ -386,7 +400,10 @@ export async function GET(req: NextRequest) {
     const userResultsByWeek = new Map<string, any>(
       userResults.map((r) => [r.week_start, r]),
     );
-    const derivedWeeks = allWeekStarts.map((ws, idx) => {
+    const derivedWeeks = allWeekStarts
+      .map((ws, idx) => ({ ws, idx }))
+      .filter(({ ws }) => participatesIn(ws))
+      .map(({ ws, idx }) => {
       const sourceSet = challengeWeekDaysByUser.get(u.id)?.get(ws) ?? new Set<string>();
       const sourceFlags = weekDates(ws).map((d) => sourceSet.has(d));
       const sourceDays = sourceFlags.filter(Boolean).length;
@@ -466,14 +483,16 @@ export async function GET(req: NextRequest) {
       display_name: u.display_name,
       display_color: u.display_color ?? null,
       profile_image_url: u.profile_image_url,
+      left_week_start: leftWeekStart,
       hearts_remaining: heartsByUser.get(u.id) ?? config.hearts_per_user,
       // Show live week activity even before challenge start so users can verify
       // their integration and preview the dashboard experience.
       current_week_days: dayFlags,
       current_week_days_count: daysCount,
       current_week_heart_used:
-        (selectedResult?.heart_used ?? false) ||
-        (heartNetByUser.get(u.id) ?? 0) > 0,
+        inSelectedWeek &&
+        ((selectedResult?.heart_used ?? false) ||
+          (heartNetByUser.get(u.id) ?? 0) > 0),
       streak: hasStarted ? streak : 0,
       total_owed: totalOwed,
       total_days_worked_out: totalDaysWorkedOut,
@@ -487,6 +506,11 @@ export async function GET(req: NextRequest) {
   // Sort: most days first, then who reached that count earlier in the week,
   // then fewest owed, then name.
   dashboardUsers.sort((a, b) => {
+    // Members who left before the selected week sink to the end; the dashboard
+    // hides them from the roster but still charts the weeks they were here for.
+    const aGone = Boolean(a.left_week_start && weekStart >= a.left_week_start);
+    const bGone = Boolean(b.left_week_start && weekStart >= b.left_week_start);
+    if (aGone !== bGone) return aGone ? 1 : -1;
     if (b.current_week_days_count !== a.current_week_days_count) {
       return b.current_week_days_count - a.current_week_days_count;
     }

@@ -132,6 +132,12 @@ export default function Dashboard({
   const progress = useChallengeProgress(data.start_date, data.end_date, initialNowIso);
   const viewers = usePresence();
   const selectedUser = data.users.find((u) => u.id === selectedUserId) ?? null;
+  // Members who left mid-challenge stay in the payload so the chart can still
+  // show the weeks they were part of, but they drop off the roster from the
+  // week they left onward.
+  const rosterUsers = data.users.filter(
+    (u) => !u.left_week_start || data.week_start < u.left_week_start,
+  );
 
   async function refreshData(weekStart = selectedWeekStart, showLoading = false) {
     if (showLoading) setWeekLoading(true);
@@ -285,7 +291,7 @@ export default function Dashboard({
 
         {/* USER LIST -------------------------------------------------------- */}
         <section className="space-y-3">
-          {data.users.length === 0 ? (
+          {rosterUsers.length === 0 ? (
             <div className="p-8 rounded-xl border border-line bg-surface text-center">
               <p className="text-bone/70">No friends connected yet.</p>
               <p className="text-xs text-muted mt-2">
@@ -293,7 +299,7 @@ export default function Dashboard({
               </p>
             </div>
           ) : (
-            data.users.map((u, i) => (
+            rosterUsers.map((u, i) => (
               <UserRow
                 key={u.id}
                 user={u}
@@ -1061,24 +1067,42 @@ function GroupCumulativeChart({
         const cumulativeByWeek = new Map<string, number>(
           u.chart_series.map((s) => [s.week_start, s.cumulative_days]),
         );
-        const cumulative: number[] = [];
+        // Someone who left the challenge has no data from that week onward.
+        // We emit nulls rather than carrying the last value forward so their
+        // line simply ends where they did — a flat line to the right edge
+        // would read as a plateau instead of a departure.
+        const participatesIn = (weekStart: string) =>
+          !u.left_week_start || weekStart < u.left_week_start;
+        const cumulative: Array<number | null> = [];
         let running = 0;
         for (const w of weeks) {
+          if (!participatesIn(w.week_start)) {
+            cumulative.push(null);
+            continue;
+          }
           const explicit = cumulativeByWeek.get(w.week_start);
           if (typeof explicit === 'number') running = explicit;
           cumulative.push(running);
         }
-        const weekly = cumulative.map((v, idx) => (idx === 0 ? v : Math.max(0, v - cumulative[idx - 1])));
+        const weekly = cumulative.map((v, idx) => {
+          if (v === null) return null;
+          const prev = idx === 0 ? null : cumulative[idx - 1];
+          return prev === null ? v : Math.max(0, v - prev);
+        });
         return { user: u, cumulative, weekly };
       }),
     [users, weeks],
   );
 
-  const seriesFor = (row: { cumulative: number[]; weekly: number[] }) =>
-    metric === 'weekly' ? row.weekly : row.cumulative;
+  const seriesFor = (row: {
+    cumulative: Array<number | null>;
+    weekly: Array<number | null>;
+  }) => (metric === 'weekly' ? row.weekly : row.cumulative);
   const maxY = Math.max(
     1,
-    ...chartRows.flatMap((row) => seriesFor(row)),
+    ...chartRows.flatMap((row) =>
+      seriesFor(row).filter((v): v is number => v !== null),
+    ),
   );
 
   const { max: niceMax, ticks: yTicks } = niceScale(maxY);
@@ -1133,8 +1157,10 @@ function GroupCumulativeChart({
 
 type ChartRow = {
   user: DashboardUser;
-  cumulative: number[];
-  weekly: number[];
+  // null at a week the member was not part of the challenge (before joining is
+  // not modelled; in practice this is the tail after someone leaves).
+  cumulative: Array<number | null>;
+  weekly: Array<number | null>;
 };
 
 function niceScale(rawMax: number): { max: number; ticks: number[] } {
@@ -1217,7 +1243,8 @@ function ChartSurface({
   for (let w = 0; w < weeks.length; w += 1) {
     const buckets = new Map<number, string[]>();
     for (const row of chartRows) {
-      const val = seriesFor(row)[w] ?? 0;
+      const val = seriesFor(row)[w];
+      if (val === null || val === undefined) continue;
       const arr = buckets.get(val) ?? [];
       arr.push(row.user.id);
       buckets.set(val, arr);
@@ -1237,8 +1264,13 @@ function ChartSurface({
   const sortedRows = chartRows
     .map((row) => ({
       user: row.user,
-      value: seriesFor(row)[activeWeekIdx] ?? 0,
+      value: seriesFor(row)[activeWeekIdx],
     }))
+    // Members who had already left by this week aren't ranked for it.
+    .filter(
+      (row): row is { user: DashboardUser; value: number } =>
+        typeof row.value === 'number',
+    )
     .sort((a, b) => b.value - a.value);
   // Dense ranking: equal values share a rank and the next distinct value is
   // the very next number, with no gaps (e.g. 1, 2, 2, 2, 3, 3, 4).
@@ -1317,11 +1349,15 @@ function ChartSurface({
           ))}
 
           {chartRows.map((row) => {
-            const points = weeks.map((_, idx) => {
-              const baseY = y(seriesFor(row)[idx] ?? 0);
-              const yOffset = yOffsetPxByUserWeek.get(row.user.id)?.[idx] ?? 0;
-              return `${x(idx)},${baseY + yOffset}`;
-            });
+            const points = weeks
+              .map((_, idx) => {
+                const value = seriesFor(row)[idx];
+                if (value === null || value === undefined) return null;
+                const yOffset = yOffsetPxByUserWeek.get(row.user.id)?.[idx] ?? 0;
+                return `${x(idx)},${y(value) + yOffset}`;
+              })
+              .filter((p): p is string => p !== null);
+            if (points.length === 0) return null;
             const focused = !focusUserId || row.user.id === focusUserId;
             return (
               <polyline
@@ -1338,7 +1374,8 @@ function ChartSurface({
 
           {chartRows.map((row) => {
             const focused = !focusUserId || row.user.id === focusUserId;
-            const value = seriesFor(row)[activeWeekIdx] ?? 0;
+            const value = seriesFor(row)[activeWeekIdx];
+            if (value === null || value === undefined) return null;
             const yOffset = yOffsetPxByUserWeek.get(row.user.id)?.[activeWeekIdx] ?? 0;
             return (
               <circle

@@ -43,8 +43,16 @@ create table if not exists users (
   profile_image_url text,
   created_at timestamptz not null default now(),
   -- soft-delete flag in case someone drops out mid-challenge
-  active boolean not null default true
+  active boolean not null default true,
+  -- Graceful mid-challenge exit. Null = still in. When set to a Sunday, the
+  -- member counts for every week BEFORE this date and is absent from that week
+  -- onward: no syncing, no roster row, no penalties, and their chart line ends
+  -- at the previous week instead of running flat to the right edge.
+  -- Their history stays intact, so clearing this column reinstates them.
+  left_week_start date
 );
+
+alter table users add column if not exists left_week_start date;
 
 create index if not exists users_active_idx on users(active);
 

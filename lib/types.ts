@@ -28,6 +28,9 @@ export interface User {
   profile_image_url: string | null;
   created_at: string;
   active: boolean;
+  // Sunday of the first week this member is no longer part of the challenge.
+  // Null = still participating. Clearing it reinstates them.
+  left_week_start: string | null;
 }
 
 export interface WeeklyResult {
@@ -60,6 +63,9 @@ export interface DashboardUser {
   display_name: string;
   display_color: string | null;
   profile_image_url: string | null;
+  // Set when the member left mid-challenge. The roster hides them from this
+  // week onward; the chart still shows the weeks they were part of.
+  left_week_start: string | null;
   hearts_remaining: number;
   // current week's day-by-day completion: array of 7 booleans, Sun..Sat
   current_week_days: boolean[];

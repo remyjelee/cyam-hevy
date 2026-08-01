@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase';
 import { syncUser } from '@/lib/scoring';
-import { todayAEST } from '@/lib/dates';
+import { currentWeekStart, todayAEST } from '@/lib/dates';
 import { ChallengeConfig } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -42,18 +42,26 @@ export async function GET(req: NextRequest) {
   // Load active users.
   const { data: users, error: usersErr } = await db
     .from('users')
-    .select('id, display_name, strava_athlete_id, strava_client_id, strava_client_secret, strava_refresh_token, strava_access_token, strava_token_expires_at, active')
+    .select('id, display_name, strava_athlete_id, strava_client_id, strava_client_secret, strava_refresh_token, strava_access_token, strava_token_expires_at, active, left_week_start')
     .eq('active', true);
   if (usersErr) {
     return NextResponse.json({ error: usersErr.message }, { status: 500 });
   }
 
   const today = todayAEST();
+  const thisWeek = currentWeekStart();
+  // Members who have left are no longer scored: skip them so we stop pulling
+  // their Strava data and stop writing weekly_results rows for them. Their
+  // past weeks stay exactly as they were.
+  const syncable = (users ?? []).filter(
+    (u: any) => !u.left_week_start || u.left_week_start > thisWeek,
+  );
+  const skipped = (users ?? []).length - syncable.length;
   const results: any[] = [];
   const errors: any[] = [];
 
   // Sync sequentially to stay well under Strava's 200/15min rate limit.
-  for (const user of users ?? []) {
+  for (const user of syncable) {
     try {
       const r = await syncUser(db, user as any, config, today);
       results.push(r);
@@ -72,6 +80,7 @@ export async function GET(req: NextRequest) {
       ok,
       synced: results.length,
       failed: errors.length,
+      skipped,
       today,
       results,
       errors,

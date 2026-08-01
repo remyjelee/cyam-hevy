@@ -1,8 +1,13 @@
 # CYAM Hevy Challenge
 
 Private gym accountability tracker for ~10–20 friends.
-4 workouts/week, 30+ minutes each, missed days = $10 to the dinner pool.
+N workouts/week, 30+ minutes each, missed days = $10 to the dinner pool.
 Pulls workout data from Strava (which Hevy auto-posts to). Free to host.
+
+Every number above is configurable and lives in the single `challenge_config`
+row — required days per week, minimum duration, deduction, hearts, counted
+activity types, and the start/end dates. This README uses the schema defaults;
+check the live row before quoting a rule at anyone.
 
 ---
 
@@ -41,7 +46,7 @@ While the review is pending, you can authorize **your own** Strava account immed
 
 1. Sign in at <https://supabase.com> and create a new project (free tier).
 2. Once the project is ready, go to **SQL Editor** → **New Query**.
-3. Copy the entire contents of `supabase/schema.sql` from this repo, paste, and click **Run**. This creates all tables and the seed config row (challenge dates: May 10 → Sep 13 2026).
+3. Copy the entire contents of `supabase/schema.sql` from this repo, paste, and click **Run**. This creates all tables and the seed config row. Adjust `start_date` / `end_date` on that row to your own challenge window.
 4. Go to **Settings** → **API** and copy three values:
    - **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
    - **anon public key** → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
@@ -130,6 +135,62 @@ Also remind them to keep **Hevy → Strava sync turned on** for the duration. (I
 - **Using a heart:** open `/admin` before Saturday night ends. Tap **Use heart** on the friend's row. They get $0 deduction for the week, and the dashboard will show their hearts decremented.
 - **Refunding a heart:** if you misclicked, **Refund heart** on the same row reverses it.
 
+## When someone leaves mid-challenge
+
+Two different buttons on `/admin`, and the difference matters:
+
+- **Mark as left** — the graceful exit. Sets `users.left_week_start` to the
+  current week's Sunday. From that week onward they're skipped by the sync,
+  gone from the roster, and accrue no penalties. Every week *before* that is
+  untouched: they still appear when you page back to those weeks, and their
+  chart line ends at their last week rather than running flat to the right
+  edge. Nothing is deleted — hit **Bring back** and they pick up from the
+  current week with their full history intact.
+- **Remove** — the hard delete-ish option. Sets `active = false`, which hides
+  them from *every* week including past ones. Use this for someone who joined
+  by mistake, not for someone who put in real weeks.
+
+To back-date or forward-date a departure, set the column directly:
+
+```sql
+-- out from the week of 26 Jul onward
+update users set left_week_start = '2026-07-26' where display_name = 'yehoo';
+-- back in
+update users set left_week_start = null where display_name = 'yehoo';
+```
+
+`left_week_start` must be a Sunday; the admin endpoint snaps whatever you give
+it to the start of that week.
+
+## Manually crediting a workout
+
+Two options, depending on whether the activity made it to Strava at all:
+
+- **It's on Strava but missing from the dashboard** (list-endpoint lag, a
+  workout finished after the last sync): use the backfill endpoint with the
+  activity id or URL. It re-scores that one activity properly.
+
+  ```bash
+  curl -X POST https://your-app.vercel.app/api/admin/backfill-activity \
+    -H "x-admin-password: $ADMIN_PASSWORD" -H "Content-Type: application/json" \
+    -d '{"user_id":"<uuid>","activity_url":"https://www.strava.com/activities/123"}'
+  ```
+
+- **It never reached Strava** (Hevy→Strava sync was off): there's no activity to
+  fetch, so insert the row by hand in the Supabase SQL editor. Use a **negative
+  `strava_activity_id`** so it can never collide with a real Strava id, and keep
+  `moving_time` at or above `min_workout_seconds`:
+
+  ```sql
+  insert into workouts (user_id, strava_activity_id, start_date, workout_date,
+                        moving_time, activity_type, name)
+  values ('<user-uuid>', -20260729, '2026-07-29T08:00:00Z', '2026-07-29',
+          1800, 'WeightTraining', 'Manual credit — Hevy (not synced to Strava)');
+  ```
+
+  Then hit **Run sync now** on `/admin` so `weekly_results` picks it up. Sync
+  only ever upserts, so manual rows survive every future sync.
+
 ---
 
 ## Troubleshooting
@@ -207,7 +268,7 @@ lib/scoring.ts                 -- the brain: sync + recompute weeks
 app/api/cron/sync/route.ts     -- sync entry point (hourly + manual)
 .github/workflows/hourly-sync.yml -- GitHub Actions schedule
 app/api/auth/strava/...        -- OAuth flow
-app/api/admin/...              -- heart claim, sync trigger, remove user
+app/api/admin/...              -- heart claim, sync trigger, leave/reinstate, remove user
 app/page.tsx                   -- public dashboard (server-rendered)
 components/Dashboard.tsx       -- the gamified UI
 app/admin/page.tsx             -- password-gated admin panel

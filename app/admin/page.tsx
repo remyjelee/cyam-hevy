@@ -196,8 +196,23 @@ export default function AdminPage() {
             deductionPerMiss={data.deduction_per_miss}
             onUseHeart={() => adminFetch('/api/admin/use-heart', { user_id: u.id })}
             onRefundHeart={() => adminFetch('/api/admin/refund-heart', { user_id: u.id })}
+            onSetLeft={(left) => {
+              if (
+                left &&
+                !confirm(
+                  `Mark ${u.display_name} as having left, starting this week?\n\nThey keep every previous week — on the dashboard and on the chart — but drop off the roster from this week on and stop being synced. Reversible.`,
+                )
+              ) {
+                return;
+              }
+              adminFetch('/api/admin/set-left-week', { user_id: u.id, left });
+            }}
             onRemove={() => {
-              if (confirm(`Remove ${u.display_name} from the challenge?`)) {
+              if (
+                confirm(
+                  `Remove ${u.display_name} from the challenge entirely?\n\nThis hides them from every week, including past ones. To let them keep their history, use "Mark as left" instead.`,
+                )
+              ) {
                 adminFetch('/api/admin/remove-user', { user_id: u.id });
               }
             }}
@@ -249,6 +264,7 @@ function AdminUserRow({
   deductionPerMiss,
   onUseHeart,
   onRefundHeart,
+  onSetLeft,
   onRemove,
 }: {
   user: DashboardUser;
@@ -258,11 +274,17 @@ function AdminUserRow({
   deductionPerMiss: number;
   onUseHeart: () => void;
   onRefundHeart: () => void;
+  onSetLeft: (left: boolean) => void;
   onRemove: () => void;
 }) {
   const owedUnits = user.total_owed / deductionPerMiss;
+  const hasLeft = Boolean(user.left_week_start);
   return (
-    <article className="p-4 rounded-xl border border-line bg-surface">
+    <article
+      className={`p-4 rounded-xl border border-line bg-surface ${
+        hasLeft ? 'opacity-60' : ''
+      }`}
+    >
       <div className="flex items-center gap-3">
         {user.profile_image_url ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -275,7 +297,14 @@ function AdminUserRow({
           <div className="w-10 h-10 rounded-full bg-elevated border border-line" />
         )}
         <div className="flex-1 min-w-0">
-          <div className="font-display text-lg uppercase">{user.display_name}</div>
+          <div className="font-display text-lg uppercase">
+            {user.display_name}
+            {hasLeft && (
+              <span className="ml-2 font-sans normal-case tracking-normal text-[10px] uppercase text-muted border border-line rounded px-1.5 py-0.5 align-middle">
+                left from {user.left_week_start}
+              </span>
+            )}
+          </div>
           <div className="text-xs text-muted">
             {user.current_week_days_count}/{requiredDaysPerWeek} this week ·{' '}
             {user.hearts_remaining}/{heartsPerUser} hearts ·{' '}
@@ -290,23 +319,36 @@ function AdminUserRow({
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2 text-xs">
-        {!user.current_week_heart_used ? (
-          <button
-            disabled={user.hearts_remaining <= 0 || busy !== null}
-            onClick={onUseHeart}
-            className="px-3 py-1.5 rounded-md bg-heart/15 border border-heart/40 text-heart disabled:opacity-40"
-          >
-            Use heart (this week)
-          </button>
-        ) : (
-          <button
-            disabled={busy !== null}
-            onClick={onRefundHeart}
-            className="px-3 py-1.5 rounded-md bg-elevated border border-line"
-          >
-            Refund heart
-          </button>
-        )}
+        {!hasLeft &&
+          (!user.current_week_heart_used ? (
+            <button
+              disabled={user.hearts_remaining <= 0 || busy !== null}
+              onClick={onUseHeart}
+              className="px-3 py-1.5 rounded-md bg-heart/15 border border-heart/40 text-heart disabled:opacity-40"
+            >
+              Use heart (this week)
+            </button>
+          ) : (
+            <button
+              disabled={busy !== null}
+              onClick={onRefundHeart}
+              className="px-3 py-1.5 rounded-md bg-elevated border border-line"
+            >
+              Refund heart
+            </button>
+          ))}
+        <button
+          disabled={busy !== null}
+          onClick={() => onSetLeft(!hasLeft)}
+          className="px-3 py-1.5 rounded-md bg-elevated border border-line disabled:opacity-40"
+          title={
+            hasLeft
+              ? 'Put them back on the roster from this week on'
+              : 'Keep every past week, drop off the roster from this week on'
+          }
+        >
+          {hasLeft ? 'Bring back' : 'Mark as left'}
+        </button>
         <button
           onClick={onRemove}
           className="px-3 py-1.5 rounded-md bg-elevated border border-line text-muted hover:text-flame"
